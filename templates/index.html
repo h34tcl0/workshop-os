@@ -1,0 +1,902 @@
+<!DOCTYPE html>
+<html lang="es" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Workshop OS — Taller al Aire Libre</title>
+    <meta name="description" content="Planificación climática y gestión de tareas para taller de carpintería al aire libre.">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        display: ['"Fraunces"', 'serif'],
+                        sans: ['"IBM Plex Sans"', 'system-ui', 'sans-serif'],
+                        mono: ['"IBM Plex Mono"', 'monospace'],
+                    },
+                    colors: {
+                        canvas: '#1B1714',
+                        surface: '#241F1A',
+                        surface2: '#2D2721',
+                        hairline: '#3A332C',
+                        ink: '#EDE4D3',
+                        ink2: '#A69C8C',
+                        ink3: '#726858',
+                        brass: '#C08A3E',
+                        brassdim: '#8C6A38',
+                        moss: '#7C9070',
+                        rust: '#B15C42',
+                        chalk: '#6B8CA3',
+                    },
+                    boxShadow: {
+                        panel: '0 1px 0 0 rgba(255,255,255,0.02) inset, 0 12px 30px -18px rgba(0,0,0,0.7)',
+                    }
+                },
+            },
+        }
+    </script>
+    <style>
+        body {
+            font-family: 'IBM Plex Sans', system-ui, sans-serif;
+            overflow-x: hidden;
+            background-color: #1B1714;
+            background-image:
+                linear-gradient(rgba(237,228,211,0.028) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(237,228,211,0.028) 1px, transparent 1px);
+            background-size: 28px 28px;
+        }
+        .font-display { font-family: 'Fraunces', serif; font-variation-settings: 'opsz' 60; }
+        .hatch {
+            background-image: repeating-linear-gradient(
+                45deg,
+                rgba(237,228,211,0.05) 0px, rgba(237,228,211,0.05) 3px,
+                transparent 3px, transparent 9px
+            );
+        }
+        .tick-row span { font-variant-numeric: tabular-nums; }
+        .pill-switch { position: relative; }
+        .pill-indicator {
+            position: absolute; top: 3px; left: 3px;
+            height: calc(100% - 6px);
+            width: calc(50% - 3px);
+            border-radius: 9999px;
+            background: #C08A3E;
+            transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+            z-index: 0;
+        }
+        .pill-indicator.right { transform: translateX(100%); }
+        .task-card { transition: border-color 0.15s ease, background-color 0.15s ease; }
+        .task-card:hover { border-color: #8C6A38; }
+        @keyframes slideUp { from { transform: translateY(16px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+        .toast-animate { animation: slideUp 0.25s ease-out; }
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #3A332C; border-radius: 999px; }
+        :focus-visible { outline: 2px solid #D9A24E; outline-offset: 2px; }
+        @media (prefers-reduced-motion: reduce) {
+            * { transition: none !important; animation: none !important; }
+        }
+    </style>
+</head>
+<body class="bg-canvas text-ink min-h-screen antialiased overflow-x-hidden">
+
+    <!-- SPRITE DE ÍCONOS -->
+    <svg class="hidden">
+        <defs>
+            <symbol id="i-mark" viewBox="0 0 32 32"><path d="M4 24 L16 6 L28 24 Z" fill="none" stroke="currentColor" stroke-width="2"/><path d="M11 24 L16 15 L21 24" fill="none" stroke="currentColor" stroke-width="2"/><line x1="4" y1="24" x2="28" y2="24" stroke="currentColor" stroke-width="2"/></symbol>
+            <symbol id="i-gear" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M12 3v2.2M12 18.8V21M21 12h-2.2M5.2 12H3M18.4 5.6l-1.5 1.5M7.1 16.9l-1.5 1.5M18.4 18.4l-1.5-1.5M7.1 7.1L5.6 5.6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></symbol>
+            <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
+            <symbol id="i-import" viewBox="0 0 24 24"><path d="M12 3v11m0 0l-4-4m4 4l4-4M4 17v2a2 2 0 002 2h12a2 2 0 002-2v-2" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" fill="none"/></symbol>
+            <symbol id="i-check" viewBox="0 0 24 24"><path d="M5 13l4 4L19 7" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" fill="none"/></symbol>
+            <symbol id="i-chev-up" viewBox="0 0 24 24"><path d="M6 15l6-6 6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/></symbol>
+            <symbol id="i-chev-down" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/></symbol>
+            <symbol id="i-close" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
+            <symbol id="i-edit" viewBox="0 0 24 24"><path d="M16.5 4.5l3 3L8 19H5v-3L16.5 4.5z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></symbol>
+            <symbol id="i-pin" viewBox="0 0 24 24"><path d="M12 21s-7-6.4-7-11.5A7 7 0 0119 9.5C19 14.6 12 21 12 21z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/><circle cx="12" cy="9.5" r="2.2" fill="none" stroke="currentColor" stroke-width="1.7"/></symbol>
+            <symbol id="i-search" viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6.5" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M20 20l-4.5-4.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></symbol>
+            <symbol id="i-history" viewBox="0 0 24 24"><path d="M3 12a9 9 0 109-9 9 9 0 00-8 5" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/><path d="M3 4v4h4" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" fill="none"/><path d="M12 7v5l3.5 2" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" fill="none"/></symbol>
+            <symbol id="i-star" viewBox="0 0 24 24"><path d="M12 3l2.6 5.6 6.1.6-4.6 4.1 1.3 6-5.4-3.1-5.4 3.1 1.3-6-4.6-4.1 6.1-.6z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></symbol>
+            <symbol id="i-star-filled" viewBox="0 0 24 24"><path d="M12 3l2.6 5.6 6.1.6-4.6 4.1 1.3 6-5.4-3.1-5.4 3.1 1.3-6-4.6-4.1 6.1-.6z" fill="currentColor" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></symbol>
+            <symbol id="i-chevron-down-sm" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/></symbol>
+            <symbol id="i-help" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M9.3 9.3a2.7 2.7 0 115.1 1.4c-.5.9-1.4 1.1-1.9 1.9-.3.5-.4 1-.4 1.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" fill="none"/><circle cx="12" cy="17" r="0.9" fill="currentColor" stroke="none"/></symbol>
+            <symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4.2" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M12 2.5v2.4M12 19v2.4M4.2 12H1.8M22.2 12h-2.4M5.6 5.6l1.7 1.7M16.7 16.7l1.7 1.7M18.4 5.6l-1.7 1.7M7.3 16.7L5.6 18.4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></symbol>
+            <symbol id="i-cloud" viewBox="0 0 24 24"><path d="M6.5 18a4 4 0 01-.5-7.97A5 5 0 0116 8a3.5 3.5 0 013.5 3.5c0 .17-.01.33-.03.5A3.5 3.5 0 0119 18H6.5z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></symbol>
+            <symbol id="i-cloud-sun" viewBox="0 0 24 24"><circle cx="7.5" cy="7.5" r="2.6" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M7.5 2.8v1.4M7.5 12v-1.3M2.8 7.5h1.4M2.8 4l1.2 1.2M11.2 4L10 5.2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><path d="M8 19a3.6 3.6 0 01-.4-7.18A4.6 4.6 0 0116.4 10a3.1 3.1 0 013.1 3.1c0 .16 0 .3-.03.45A3.1 3.1 0 0119 19H8z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></symbol>
+            <symbol id="i-cloud-rain" viewBox="0 0 24 24"><path d="M6.5 15a4 4 0 01-.5-7.97A5 5 0 0116 5a3.5 3.5 0 013.5 3.5c0 .17-.01.33-.03.5A3.5 3.5 0 0119 15H6.5z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/><path d="M8 18.5l-1 2.3M12.5 18.5l-1 2.3M17 18.5l-1 2.3" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></symbol>
+        </defs>
+    </svg>
+
+    <!-- HEADER -->
+    <header class="border-b border-hairline bg-canvas/90 backdrop-blur-sm sticky top-0 z-50">
+        <div class="max-w-[1440px] mx-auto px-4 sm:px-6 py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 sm:w-11 sm:h-11 shrink-0 rounded-lg bg-surface2 border border-hairline flex items-center justify-center text-brass">
+                    <svg class="w-5 h-5 sm:w-6 sm:h-6"><use href="#i-mark"/></svg>
+                </div>
+                <div class="min-w-0">
+                    <h1 class="font-display text-xl sm:text-2xl font-semibold tracking-tight text-ink leading-none">
+                        Workshop OS
+                    </h1>
+                    <p class="text-[11px] sm:text-xs text-ink3 font-medium tracking-wide mt-1">Taller de carpintería al aire libre</p>
+                </div>
+            </div>
+
+            <div class="flex flex-wrap items-stretch gap-2 sm:gap-3">
+                <form action="/evaluation/force_run" method="post" class="flex items-center gap-2 bg-surface border border-hairline rounded-lg px-3 py-2">
+                    <span class="text-[11px] text-ink3 font-medium hidden md:inline whitespace-nowrap">Escenario</span>
+                    <select name="scenario" id="scenario" class="bg-surface2 text-ink border border-hairline rounded-md px-2.5 py-1.5 text-sm focus:outline-none cursor-pointer min-w-0">
+                        <option value="" {% if current_scenario == 'real' %}selected{% endif %}>Clima real (Open-Meteo)</option>
+                        <option value="sunny" {% if current_scenario == 'sunny' %}selected{% endif %}>Simular: soleado ideal</option>
+                        <option value="morning_rain" {% if current_scenario == 'morning_rain' %}selected{% endif %}>Simular: lluvia matutina</option>
+                        <option value="afternoon_rain" {% if current_scenario == 'afternoon_rain' %}selected{% endif %}>Simular: lluvia de tarde</option>
+                        <option value="buffer_rain" {% if current_scenario == 'buffer_rain' %}selected{% endif %}>Simular: lluvia en buffer de secado</option>
+                    </select>
+                    <button type="submit" class="bg-brass hover:bg-brassdim text-canvas text-sm font-semibold px-3.5 py-1.5 rounded-md transition-colors whitespace-nowrap">
+                        Evaluar
+                    </button>
+                </form>
+
+                <button type="button" onclick="openSettingsModal()" aria-label="Configuración" class="flex items-center gap-2 bg-surface hover:bg-surface2 border border-hairline hover:border-brassdim text-ink2 hover:text-ink px-3 py-2.5 rounded-lg text-sm font-medium transition-colors">
+                    <svg class="w-4 h-4"><use href="#i-gear"/></svg>
+                    <span class="hidden md:inline">Configuración</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- MAIN GRID -->
+    <main class="max-w-[1440px] mx-auto px-4 sm:px-6 py-6 sm:py-8">
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-8">
+
+            <!-- LEFT COLUMN: BACKLOG -->
+            <div class="space-y-5 min-w-0">
+                <div class="flex items-center justify-between">
+                    <h2 class="font-display text-lg sm:text-xl font-semibold flex items-baseline gap-2">
+                        <span class="text-[11px] font-mono font-semibold tracking-widest text-brass uppercase">01</span>
+                        Backlog de tareas
+                    </h2>
+                    <span class="text-[11px] font-mono text-ink3 bg-surface border border-hairline px-2.5 py-1 rounded-full">
+                        {{ tasks|length }} tarea{{ 's' if tasks|length != 1 else '' }}
+                    </span>
+                </div>
+
+                <div class="pill-switch relative bg-surface border border-hairline rounded-full p-1 flex">
+                    <div id="pill-indicator" class="pill-indicator"></div>
+                    <button type="button" onclick="switchTab('manual')" id="tab-btn-manual" class="relative z-10 flex-1 py-2.5 rounded-full text-sm font-semibold text-center text-canvas">Modo manual</button>
+                    <button type="button" onclick="switchTab('json')" id="tab-btn-json" class="relative z-10 flex-1 py-2.5 rounded-full text-sm font-semibold text-center text-ink2">Importar JSON (IA)</button>
+                </div>
+
+                <!-- TAB MANUAL -->
+                <div id="tab-manual" class="tab-content">
+                    {% if favorites %}
+                    <div class="mb-3">
+                        <p class="text-[11px] font-semibold text-ink3 uppercase tracking-wide mb-2">Favoritas</p>
+                        <div class="flex flex-wrap gap-2">
+                            {% for fav in favorites %}
+                            <div class="group relative">
+                                <button type="button" onclick="useFavoriteInForm({{ fav.id }}, '{{ fav.title|e }}', '{{ fav.category.value }}', {{ fav.estimated_hours }}, {{ fav.curing_hours }})" class="flex items-center gap-1.5 bg-surface2 hover:bg-hairline border border-hairline text-ink2 text-xs font-medium pl-3 pr-7 py-1.5 rounded-full transition-colors">
+                                    <svg class="w-3 h-3 text-brass"><use href="#i-star-filled"/></svg>
+                                    {{ fav.title }}
+                                </button>
+                                <form action="/favorites/{{ fav.id }}/delete" method="post" class="absolute right-1 top-1/2 -translate-y-1/2">
+                                    <button type="submit" aria-label="Quitar favorita" class="w-5 h-5 rounded-full flex items-center justify-center text-ink3 hover:text-rust hover:bg-rust/10">
+                                        <svg class="w-3 h-3"><use href="#i-close"/></svg>
+                                    </button>
+                                </form>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    {% endif %}
+                    <form action="/tasks/add" method="post" class="bg-surface border border-hairline rounded-2xl p-5 sm:p-6 space-y-4 shadow-panel">
+                        <div>
+                            <label class="block text-[11px] font-semibold text-ink3 mb-1.5 uppercase tracking-wide">Título de la tarea</label>
+                            <input type="text" id="manual-title" name="title" required placeholder="Ej. Lijado de cubiertas" class="w-full bg-surface2 border border-hairline text-ink rounded-lg px-3.5 py-2.5 text-sm focus:outline-none focus:border-brass">
+                        </div>
+                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                            <div>
+                                <label class="block text-[11px] font-semibold text-ink3 mb-1.5 uppercase tracking-wide">Categoría</label>
+                                <select id="manual-category" name="category" class="w-full bg-surface2 border border-hairline text-ink rounded-lg px-3 py-2.5 text-sm focus:outline-none">
+                                    <option value="carpentry">Carpintería</option>
+                                    <option value="pva_glue">Encolado PVA</option>
+                                    <option value="varnish_paint">Barnizado / Pintura</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-[11px] font-semibold text-ink3 mb-1.5 uppercase tracking-wide">Horas activas</label>
+                                <input type="number" step="0.5" id="manual-estimated-hours" name="estimated_hours" value="1.5" min="0.5" class="w-full bg-surface2 border border-hairline text-ink rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:border-brass">
+                            </div>
+                            <div>
+                                <label class="block text-[11px] font-semibold text-ink3 mb-1.5 uppercase tracking-wide">Horas curado</label>
+                                <input type="number" step="0.5" id="manual-curing-hours" name="curing_hours" value="0.0" min="0.0" class="w-full bg-surface2 border border-hairline text-ink rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:border-brass">
+                            </div>
+                        </div>
+                        <button type="submit" class="w-full flex items-center justify-center gap-2 bg-brass hover:bg-brassdim text-canvas font-semibold py-3 rounded-lg text-sm transition-colors">
+                            <svg class="w-4 h-4"><use href="#i-plus"/></svg> Agregar tarea
+                        </button>
+                    </form>
+                </div>
+
+                <!-- TAB JSON -->
+                <div id="tab-json" class="tab-content hidden">
+                    <div class="bg-surface border border-hairline rounded-2xl p-5 sm:p-6 space-y-4 shadow-panel">
+                        <div class="flex items-center justify-between gap-3 flex-wrap">
+                            <p class="text-xs text-ink3">Pega el JSON generado por IA:</p>
+                            <button type="button" onclick="copyAiPrompt()" class="text-xs font-semibold text-brass border border-brassdim/50 bg-brass/5 hover:bg-brass/10 px-3 py-1.5 rounded-md transition-colors whitespace-nowrap">Copiar prompt IA</button>
+                        </div>
+                        <textarea id="json-import-input" rows="7" placeholder='{"project_name": "...", "tasks": [...] }' class="w-full bg-surface2 border border-hairline text-ink rounded-lg px-4 py-3 text-sm font-mono resize-none focus:outline-none focus:border-chalk"></textarea>
+                        <button type="button" onclick="importJsonTasks()" class="w-full flex items-center justify-center gap-2 bg-chalk hover:bg-chalk/80 text-canvas font-semibold py-3 rounded-lg text-sm transition-colors">
+                            <svg class="w-4 h-4"><use href="#i-import"/></svg> Importar proyecto
+                        </button>
+                    </div>
+                </div>
+
+                <!-- TASK LIST -->
+                <div class="space-y-2.5">
+                    {% for task in tasks %}
+                    <div class="task-card bg-surface border border-hairline rounded-xl overflow-hidden">
+                        <div class="p-3.5 flex items-stretch gap-3">
+                            <div class="flex flex-col gap-1 justify-center">
+                                <form action="/tasks/{{ task.id }}/move-up" method="post"><button type="submit" aria-label="Subir" class="w-7 h-7 rounded-md bg-surface2 hover:bg-hairline text-ink3 flex items-center justify-center"><svg class="w-3.5 h-3.5"><use href="#i-chev-up"/></svg></button></form>
+                                <form action="/tasks/{{ task.id }}/move-down" method="post"><button type="submit" aria-label="Bajar" class="w-7 h-7 rounded-md bg-surface2 hover:bg-hairline text-ink3 flex items-center justify-center"><svg class="w-3.5 h-3.5"><use href="#i-chev-down"/></svg></button></form>
+                            </div>
+                            <div class="flex-1 min-w-0 flex flex-col justify-center">
+                                <div class="flex items-center gap-2 mb-1.5 flex-wrap">
+                                    <span class="text-[10px] font-mono font-semibold text-brass shrink-0">#{{ loop.index }}</span>
+                                    <h4 class="text-sm font-medium text-ink truncate">{{ task.title }}</h4>
+                                </div>
+                                <div class="flex items-center gap-3 text-xs">
+                                    <span class="font-mono text-ink2">{{ task.estimated_hours }}h <span class="text-ink3">activo</span></span>
+                                    {% if task.curing_hours > 0 %}<span class="font-mono text-chalk">{{ task.curing_hours }}h <span class="text-ink3">curado</span></span>{% endif %}
+                                </div>
+                            </div>
+                            <div class="flex flex-col gap-1 justify-center">
+                                <button type="button" onclick="toggleEditTask({{ task.id }})" aria-label="Editar tiempos" class="w-8 h-8 rounded-md bg-chalk/10 hover:bg-chalk/20 text-chalk flex items-center justify-center transition-colors"><svg class="w-3.5 h-3.5"><use href="#i-edit"/></svg></button>
+                                <form action="/tasks/{{ task.id }}/favorite" method="post">
+                                    <button type="submit" aria-label="Guardar como favorita" class="w-8 h-8 rounded-md bg-brass/10 hover:bg-brass/20 text-brass flex items-center justify-center transition-colors"><svg class="w-3.5 h-3.5"><use href="#i-star"/></svg></button>
+                                </form>
+                                <form action="/tasks/{{ task.id }}/delete" method="post">
+                                    <button type="submit" aria-label="Eliminar" class="w-8 h-8 rounded-md bg-rust/10 hover:bg-rust/20 text-rust flex items-center justify-center transition-colors"><svg class="w-4 h-4"><use href="#i-close"/></svg></button>
+                                </form>
+                            </div>
+                        </div>
+
+                        <!-- Panel inline de edición de tiempos -->
+                        <div id="edit-task-{{ task.id }}" class="hidden border-t border-hairline bg-canvas/40 p-3.5">
+                            <form action="/tasks/{{ task.id }}/update" method="post" class="space-y-3">
+                                <div>
+                                    <label class="block text-[10px] font-semibold text-ink3 mb-1 uppercase tracking-wide">Título</label>
+                                    <input type="text" name="title" value="{{ task.title }}" required class="w-full bg-surface2 border border-hairline text-ink rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-chalk">
+                                </div>
+                                <div class="grid grid-cols-3 gap-2">
+                                    <div>
+                                        <label class="block text-[10px] font-semibold text-ink3 mb-1 uppercase tracking-wide">Categoría</label>
+                                        <select name="category" class="w-full bg-surface2 border border-hairline text-ink rounded-lg px-2 py-2 text-xs focus:outline-none">
+                                            <option value="carpentry" {% if task.category.value == 'carpentry' %}selected{% endif %}>Carpintería</option>
+                                            <option value="pva_glue" {% if task.category.value == 'pva_glue' %}selected{% endif %}>Encolado PVA</option>
+                                            <option value="varnish_paint" {% if task.category.value == 'varnish_paint' %}selected{% endif %}>Barnizado</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label class="block text-[10px] font-semibold text-ink3 mb-1 uppercase tracking-wide">Horas activas</label>
+                                        <input type="number" step="0.5" min="0.5" name="estimated_hours" value="{{ task.estimated_hours }}" required class="w-full bg-surface2 border border-hairline text-ink rounded-lg px-2 py-2 text-xs focus:outline-none focus:border-chalk">
+                                    </div>
+                                    <div>
+                                        <label class="block text-[10px] font-semibold text-ink3 mb-1 uppercase tracking-wide">Horas curado</label>
+                                        <input type="number" step="0.5" min="0.0" name="curing_hours" value="{{ task.curing_hours }}" required class="w-full bg-surface2 border border-hairline text-ink rounded-lg px-2 py-2 text-xs focus:outline-none focus:border-chalk">
+                                    </div>
+                                </div>
+                                <div class="flex items-center gap-2 pt-1">
+                                    <button type="button" onclick="toggleEditTask({{ task.id }})" class="flex-1 bg-surface2 hover:bg-hairline text-ink2 font-semibold py-2 rounded-lg text-xs transition-colors">Cancelar</button>
+                                    <button type="submit" class="flex-1 bg-chalk hover:bg-chalk/80 text-canvas font-semibold py-2 rounded-lg text-xs transition-colors">Guardar cambios</button>
+                                </div>
+                            </form>
+                            <form action="/tasks/{{ task.id }}/update_status" method="post" class="mt-2">
+                                <input type="hidden" name="status" value="completed"><input type="hidden" name="progress" value="100">
+                                <button type="submit" class="w-full flex items-center justify-center gap-1.5 bg-moss/10 hover:bg-moss/20 text-moss font-semibold py-2 rounded-lg text-xs transition-colors">
+                                    <svg class="w-3.5 h-3.5"><use href="#i-check"/></svg> Marcar como completada
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+
+                <!-- HISTORIAL DE ÚLTIMOS 7 DÍAS -->
+                <div class="bg-surface border border-hairline rounded-2xl overflow-hidden">
+                    <button type="button" onclick="toggleHistory()" class="w-full flex items-center justify-between px-4 py-3 text-left">
+                        <span class="flex items-center gap-2 text-sm font-semibold text-ink2">
+                            <svg class="w-4 h-4 text-ink3"><use href="#i-history"/></svg>
+                            Historial (últimos 7 días)
+                            <span class="text-[11px] font-mono text-ink3 bg-surface2 border border-hairline px-2 py-0.5 rounded-full">{{ completed_history|length if completed_history is defined else 0 }}</span>
+                        </span>
+                        <svg id="history-chevron" class="w-4 h-4 text-ink3 transition-transform"><use href="#i-chevron-down-sm"/></svg>
+                    </button>
+                    <div id="history-panel" class="hidden border-t border-hairline">
+                        {% if completed_history %}
+                        <div class="divide-y divide-hairline max-h-72 overflow-y-auto">
+                            {% for t in completed_history %}
+                            <div class="flex items-center justify-between gap-2 px-4 py-2.5">
+                                <div class="min-w-0">
+                                    <p class="text-xs font-medium text-ink truncate">{{ t.title }}</p>
+                                    <p class="text-[10px] text-ink3 font-mono">{{ t.completed_at.strftime('%d/%m %H:%M') if t.completed_at else '' }}</p>
+                                </div>
+                                <span class="text-[11px] font-mono text-moss shrink-0">{{ t.estimated_hours }}h</span>
+                            </div>
+                            {% endfor %}
+                        </div>
+                        {% else %}
+                        <p class="px-4 py-3 text-xs text-ink3">Todavía no hay tareas completadas en los últimos 7 días.</p>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+
+            <!-- RIGHT COLUMN: WEATHER FORECAST & EVALUATIONS -->
+            <div class="space-y-5 min-w-0">
+                <div class="flex items-center justify-between">
+                    <h2 class="font-display text-lg sm:text-xl font-semibold flex items-baseline gap-2">
+                        <span class="text-[11px] font-mono font-semibold tracking-widest text-brass uppercase">02</span>
+                        Ventana meteorológica
+                    </h2>
+                    <span class="text-[11px] font-mono text-ink3 bg-surface border border-hairline px-2.5 py-1 rounded-full">7 días</span>
+                </div>
+
+                <div class="space-y-4">
+                    {% macro day_editor_modal(item, eval, all_tasks) %}
+                    {% set date_iso = item.date.isoformat() %}
+                    {% set override = item.day_override %}
+                    <div id="day-editor-{{ date_iso }}" class="fixed inset-0 z-[120] bg-canvas/85 backdrop-blur-sm hidden flex items-center justify-center p-4">
+                        <div class="bg-surface border border-hairline rounded-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto p-5 sm:p-6 shadow-panel relative">
+                            <div class="flex items-center justify-between border-b border-hairline pb-4 mb-5">
+                                <h3 class="font-display text-lg font-semibold text-ink">Editar {{ item.date_str }}</h3>
+                                <button type="button" onclick="toggleDayEditor('{{ date_iso }}')" aria-label="Cerrar" class="text-ink3 hover:text-ink w-8 h-8 flex items-center justify-center rounded-md bg-surface2">
+                                    <svg class="w-4 h-4"><use href="#i-close"/></svg>
+                                </button>
+                            </div>
+
+                            <form action="/day-override/{{ date_iso }}/save" method="post" class="space-y-4">
+                                <div>
+                                    <label class="block text-[11px] font-semibold text-ink3 mb-1.5 uppercase tracking-wide">Estado del día</label>
+                                    <select name="force_status" class="w-full bg-surface2 border border-hairline text-ink rounded-lg px-3 py-2.5 text-sm focus:outline-none">
+                                        <option value="" {% if not override or not override.force_status %}selected{% endif %}>Automático (según clima)</option>
+                                        <option value="VIABLE" {% if override and override.force_status == 'VIABLE' %}selected{% endif %}>Forzar viable</option>
+                                        <option value="BLOCKED" {% if override and override.force_status == 'BLOCKED' %}selected{% endif %}>Forzar bloqueado</option>
+                                    </select>
+                                </div>
+
+                                <div>
+                                    <label class="block text-[11px] font-semibold text-ink3 mb-1.5 uppercase tracking-wide">Motivo (opcional, se muestra si está bloqueado)</label>
+                                    <input type="text" name="note" value="{{ override.note if override and override.note else '' }}" placeholder="Ej. Viaje, evento familiar..." class="w-full bg-surface2 border border-hairline text-ink rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:border-brass">
+                                </div>
+
+                                <div class="grid grid-cols-2 gap-3">
+                                    <div>
+                                        <label class="block text-[11px] font-semibold text-ink3 mb-1.5 uppercase tracking-wide">Inicio jornada (este día)</label>
+                                        <input type="number" min="0" max="23" name="custom_start_hour" value="{{ override.custom_start_hour if override and override.custom_start_hour is not none else '' }}" placeholder="{{ app_settings.operational_start_hour }}" class="w-full bg-surface2 border border-hairline text-ink rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:border-brass">
+                                    </div>
+                                    <div>
+                                        <label class="block text-[11px] font-semibold text-ink3 mb-1.5 uppercase tracking-wide">Fin jornada (este día)</label>
+                                        <input type="number" min="0" max="23" name="custom_end_hour" value="{{ override.custom_end_hour if override and override.custom_end_hour is not none else '' }}" placeholder="{{ app_settings.operational_end_hour }}" class="w-full bg-surface2 border border-hairline text-ink rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:border-brass">
+                                    </div>
+                                </div>
+                                <p class="text-[11px] text-ink3 -mt-2">Vacío = usa la jornada general configurada.</p>
+
+                                {% if eval.scheduled_tasks %}
+                                <div>
+                                    <label class="block text-[11px] font-semibold text-ink3 mb-1.5 uppercase tracking-wide">Tareas agendadas este día</label>
+                                    <div class="space-y-2 bg-canvas/40 border border-hairline rounded-lg p-3">
+                                        {% for t in eval.scheduled_tasks %}
+                                        <label class="flex items-center gap-2.5 cursor-pointer">
+                                            <input type="checkbox" name="removed_task_ids" value="{{ t.id }}" class="w-4 h-4 rounded border-hairline bg-surface2 text-rust focus:ring-rust">
+                                            <span class="text-xs text-ink2">Quitar <strong class="text-ink font-medium">{{ t.title }}</strong> de este día</span>
+                                        </label>
+                                        {% endfor %}
+                                    </div>
+                                </div>
+                                {% endif %}
+
+                                <div class="flex items-center gap-3 pt-3 border-t border-hairline">
+                                    <button type="submit" class="flex-1 bg-brass hover:bg-brassdim text-canvas font-semibold py-2.5 rounded-lg text-sm transition-colors">Guardar</button>
+                                </div>
+                            </form>
+
+                            {% if override and override.id %}
+                            <form action="/day-override/{{ date_iso }}/clear" method="post" class="mt-2">
+                                <button type="submit" class="w-full text-center text-xs text-ink3 hover:text-rust py-2">Quitar todos los ajustes manuales de este día</button>
+                            </form>
+                            {% endif %}
+
+                            <div class="pt-4 mt-4 border-t border-hairline">
+                                <label class="block text-[11px] font-semibold text-ink3 mb-2 uppercase tracking-wide">Tareas forzadas (se saltan clima y ventana)</label>
+
+                                {% if eval.forced_tasks %}
+                                <div class="space-y-2 mb-3">
+                                    {% for ft in eval.forced_tasks %}
+                                    <div class="flex items-center justify-between gap-2 bg-brass/5 border border-brassdim/30 rounded-lg px-3 py-2">
+                                        <span class="text-xs text-ink2">⚡ <strong class="text-ink font-medium">{{ ft.task.title }}</strong> a las {{ '%02d:00'|format(ft.forced_start_hour|int) }}</span>
+                                        <form action="/day-override/forced-task/{{ ft.forced_id }}/delete" method="post">
+                                            <button type="submit" aria-label="Quitar forzada" class="w-6 h-6 rounded-md text-rust hover:bg-rust/10 flex items-center justify-center"><svg class="w-3.5 h-3.5"><use href="#i-close"/></svg></button>
+                                        </form>
+                                    </div>
+                                    {% endfor %}
+                                </div>
+                                {% endif %}
+
+                                <form action="/day-override/{{ date_iso }}/force-task" method="post" class="flex items-end gap-2">
+                                    <div class="flex-1 min-w-0">
+                                        <label class="block text-[10px] text-ink3 mb-1">Tarea</label>
+                                        <select name="task_id" class="w-full bg-surface2 border border-hairline text-ink rounded-lg px-2 py-2 text-xs focus:outline-none">
+                                            {% for t in all_tasks %}
+                                            <option value="{{ t.id }}">{{ t.title }}</option>
+                                            {% endfor %}
+                                        </select>
+                                    </div>
+                                    <div class="w-20 shrink-0">
+                                        <label class="block text-[10px] text-ink3 mb-1">Hora</label>
+                                        <input type="number" name="forced_start_hour" min="0" max="23" value="9" class="w-full bg-surface2 border border-hairline text-ink rounded-lg px-2 py-2 text-xs focus:outline-none">
+                                    </div>
+                                    <button type="submit" class="bg-chalk hover:bg-chalk/80 text-canvas font-semibold px-3 py-2 rounded-lg text-xs transition-colors shrink-0">Forzar</button>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                    {% endmacro %}
+
+                    {% for item in forecast_evaluations %}
+
+                    {% set eval = item.evaluation if item.evaluation is defined else item %}
+                    {% set is_viable = (eval.status.value == 'DAY_VIABLE') if eval.status.value is defined else (eval.status == 'DAY_VIABLE') %}
+                    {% set seg = eval.bar_segments if eval.bar_segments is defined else item.bar_segments %}
+                    {% set cond = eval.weather_summary.condition if eval.weather_summary and eval.weather_summary.condition is defined else 'sunny' %}
+
+                    {% if is_viable %}
+                    <!-- ── DÍA VIABLE ── -->
+                    <div class="bg-surface border border-hairline rounded-2xl p-4 sm:p-5 shadow-panel">
+
+                        <!-- Header del Día -->
+                        <div class="flex items-center justify-between gap-2 mb-3">
+                            <span class="font-display text-base sm:text-lg font-semibold text-ink flex items-center gap-2 min-w-0">
+                                <span class="truncate">{{ item.date_str if item.date_str is defined else eval.date_str }}</span>
+                                <svg class="w-4 h-4 text-brass shrink-0">
+                                    {% if cond == 'rain' %}<use href="#i-cloud-rain"/>{% elif cond == 'cloudy' %}<use href="#i-cloud"/>{% elif cond == 'partly' %}<use href="#i-cloud-sun"/>{% else %}<use href="#i-sun"/>{% endif %}
+                                </svg>
+                            </span>
+                            <div class="flex items-center gap-1.5 shrink-0">
+                                <button type="button" onclick="toggleDayEditor('{{ item.date.isoformat() }}')" aria-label="Editar día" class="w-6 h-6 rounded-md bg-surface2 hover:bg-hairline text-ink3 flex items-center justify-center">
+                                    <svg class="w-3 h-3"><use href="#i-edit"/></svg>
+                                </button>
+                                <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-moss/10 text-moss border border-moss/25 whitespace-nowrap">
+                                    Viable
+                                </span>
+                            </div>
+                        </div>
+
+                        <!-- Rango de Horario y Temps -->
+                        <p class="text-xs text-ink3 mb-4">
+                            Jornada {{ app_settings.operational_start_hour }}:00–{{ app_settings.operational_end_hour }}:00 ·
+                            <span class="text-ink2 font-mono">{{ eval.weather_summary.min_temp }}°–{{ eval.weather_summary.max_temp }}°C</span>
+                        </p>
+
+                        {% if eval.window %}
+                        <!-- Ventana Óptima -->
+                        <div class="flex items-center justify-between mb-2">
+                            <span class="text-xs font-semibold text-ink2 uppercase tracking-wide">Ventana óptima</span>
+                            <span class="text-sm font-mono font-semibold text-brass">
+                                {{ eval.window.start_time.strftime('%H:%M') if eval.window.start_time.strftime is defined else eval.window.start_time }} — {{ eval.window.end_time.strftime('%H:%M') if eval.window.end_time.strftime is defined else eval.window.end_time }}
+                            </span>
+                        </div>
+
+                        <!-- REGLA DE JORNADA (elemento firma) -->
+                        {% if seg %}
+                        <div class="rounded-lg border border-hairline bg-canvas/50 p-2.5 mb-4">
+                            <div class="tick-row flex items-center justify-between text-[10px] font-mono text-ink3 mb-1.5 px-0.5">
+                                <span>{{ app_settings.operational_start_hour }}:00</span>
+                                <span>{{ app_settings.operational_end_hour }}:00</span>
+                            </div>
+                            <div class="relative h-8 rounded-md overflow-hidden flex ring-1 ring-hairline">
+
+                                {% if seg.pct_closed_before and seg.pct_closed_before > 0 %}
+                                <div class="hatch h-full bg-surface2 border-r border-canvas" style="width: {{ seg.pct_closed_before }}%;" title="Cerrado {{ seg.closed_before_h }}h"></div>
+                                {% endif %}
+
+                                <div class="h-full bg-brass border-r border-canvas flex items-center justify-center overflow-hidden" style="width: {{ seg.pct_setup if seg.pct_setup is defined else 10 }}%;" title="Preparación {{ seg.setup_h if seg.setup_h is defined else 1 }}h">
+                                    <span class="text-[9px] sm:text-[10px] font-mono font-bold text-canvas whitespace-nowrap px-1">PREP</span>
+                                </div>
+
+                                <div class="h-full bg-moss border-r border-canvas flex items-center justify-center overflow-hidden" style="width: {{ seg.pct_work if seg.pct_work is defined else 60 }}%;" title="Trabajo {{ seg.work_h if seg.work_h is defined else 2 }}h">
+                                    <span class="text-[9px] sm:text-[10px] font-mono font-bold text-canvas whitespace-nowrap px-1">{{ seg.work_h if seg.work_h is defined else 2 }}H TRABAJO</span>
+                                </div>
+
+                                <div class="h-full bg-chalk border-r border-canvas flex items-center justify-center overflow-hidden" style="width: {{ seg.pct_teardown if seg.pct_teardown is defined else 10 }}%;" title="Cierre {{ seg.teardown_h if seg.teardown_h is defined else 1 }}h">
+                                    <span class="text-[9px] sm:text-[10px] font-mono font-bold text-canvas whitespace-nowrap px-1">CIERRE</span>
+                                </div>
+
+                                {% if seg.pct_curing and seg.pct_curing > 0 %}
+                                <div class="h-full border-r border-canvas border-dashed border-2 border-chalk/70 bg-chalk/10 flex items-center justify-center overflow-hidden" style="width: {{ seg.pct_curing }}%;" title="Curado {{ seg.curing_h }}h">
+                                    <span class="text-[9px] sm:text-[10px] font-mono font-semibold text-chalk whitespace-nowrap px-1">CURADO</span>
+                                </div>
+                                {% endif %}
+
+                                {% if seg.pct_closed_after and seg.pct_closed_after > 0 %}
+                                <div class="hatch h-full bg-surface2" style="width: {{ seg.pct_closed_after }}%;" title="Cerrado {{ seg.closed_after_h }}h"></div>
+                                {% endif %}
+
+                            </div>
+                        </div>
+                        {% endif %}
+
+                        <!-- Cronograma Detallado -->
+                        {% if eval.timeline %}
+                        <div class="border-t border-hairline pt-3 mb-3">
+                            <p class="text-[11px] text-ink3 font-semibold uppercase tracking-wider mb-2">Cronograma</p>
+                            <div class="space-y-1 bg-canvas/40 rounded-lg p-2.5 border border-hairline">
+                                {% for act in eval.timeline %}
+                                <div class="flex items-center justify-between text-xs py-1 px-1.5 rounded-md hover:bg-surface2 transition-colors">
+                                    <span class="font-mono text-brass font-semibold w-24 shrink-0">{{ act.time_range }}</span>
+                                    <span class="text-ink2 font-medium truncate flex-1 px-2 min-w-0">
+                                        {{ act.title }}
+                                    </span>
+                                    <span class="text-[10px] font-mono font-medium text-ink3 bg-surface2 border border-hairline px-1.5 py-0.5 rounded-full shrink-0">{{ act.duration }}</span>
+                                </div>
+                                {% endfor %}
+                            </div>
+
+                            {% if eval.cutoff_reason %}
+                            <div class="mt-2.5 bg-brass/5 border border-brassdim/30 rounded-lg p-2.5 text-xs text-ink2">
+                                <strong class="font-semibold text-brass">Motivo de cierre — </strong>{{ eval.cutoff_reason }}
+                            </div>
+                            {% endif %}
+                        </div>
+                        {% endif %}
+
+                        <!-- Tareas Asignadas -->
+                        {% if eval.scheduled_tasks %}
+                        <div class="border-t border-hairline pt-3">
+                            <p class="text-[11px] text-ink3 font-semibold uppercase tracking-wider mb-2">Tareas asignadas</p>
+                            <div class="space-y-1.5">
+                                {% for task in eval.scheduled_tasks %}
+                                <div class="flex items-center justify-between gap-2 bg-canvas/40 border border-hairline rounded-md px-3 py-2">
+                                    <div class="flex items-center gap-2 min-w-0">
+                                        <svg class="w-3.5 h-3.5 text-moss shrink-0"><use href="#i-check"/></svg>
+                                        <span class="text-xs font-medium text-ink truncate">#{{ task.order if task.order else loop.index }} — {{ task.title }}</span>
+                                    </div>
+                                    <div class="flex items-center gap-2 text-[11px] font-mono text-ink3 shrink-0">
+                                        <span>{{ task.estimated_hours }}h</span>
+                                        {% if task.curing_hours > 0 %}
+                                        <span class="text-chalk">+{{ task.curing_hours }}h</span>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                        {% endif %}
+
+                        {% if eval.forced_tasks %}
+                        <div class="border-t border-hairline pt-3 mt-3">
+                            <p class="text-[11px] text-brass font-semibold uppercase tracking-wider mb-2">⚡ Forzadas (se saltan clima y ventana)</p>
+                            <div class="space-y-1.5">
+                                {% for ft in eval.forced_tasks %}
+                                <div class="flex items-center justify-between gap-2 bg-brass/5 border border-brassdim/30 rounded-md px-3 py-2">
+                                    <span class="text-xs font-medium text-ink truncate">{{ ft.task.title }}</span>
+                                    <span class="text-[11px] font-mono text-brass shrink-0">{{ '%02d:00'|format(ft.forced_start_hour|int) }}</span>
+                                </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                        {% endif %}
+
+                        {% endif %}
+                    </div>
+
+                    {% else %}
+                    <!-- ── DÍA SUSPENDIDO ── -->
+                    <div class="bg-surface border border-rust/20 rounded-2xl p-4 sm:p-5">
+                        <div class="flex items-center justify-between gap-2 mb-2">
+                            <span class="font-display text-base sm:text-lg font-semibold text-ink2 flex items-center gap-2 min-w-0">
+                                <span class="truncate">{{ item.date_str if item.date_str is defined else eval.date_str }}</span>
+                                <svg class="w-4 h-4 text-ink3 shrink-0">
+                                    {% if cond == 'rain' %}<use href="#i-cloud-rain"/>{% elif cond == 'cloudy' %}<use href="#i-cloud"/>{% elif cond == 'partly' %}<use href="#i-cloud-sun"/>{% else %}<use href="#i-sun"/>{% endif %}
+                                </svg>
+                            </span>
+                            <div class="flex items-center gap-1.5 shrink-0">
+                                <button type="button" onclick="toggleDayEditor('{{ item.date.isoformat() }}')" aria-label="Editar día" class="w-6 h-6 rounded-md bg-surface2 hover:bg-hairline text-ink3 flex items-center justify-center">
+                                    <svg class="w-3 h-3"><use href="#i-edit"/></svg>
+                                </button>
+                                <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-rust/10 text-rust border border-rust/25 whitespace-nowrap">
+                                    Suspendido
+                                </span>
+                            </div>
+                        </div>
+                        <p class="text-xs text-ink3 mb-3">
+                            <span class="text-ink2 font-mono">{{ eval.weather_summary.min_temp }}°–{{ eval.weather_summary.max_temp }}°C</span>
+                        </p>
+                        <div class="bg-canvas/40 border border-rust/20 rounded-lg px-3.5 py-2.5 text-xs text-ink2">
+                            <strong class="font-semibold text-rust">Motivo — </strong>{{ eval.reason }}
+                        </div>
+
+                        {% if eval.forced_tasks %}
+                        <div class="mt-3 pt-3 border-t border-hairline">
+                            <p class="text-[11px] text-brass font-semibold uppercase tracking-wider mb-2">⚡ Forzadas a pesar del bloqueo</p>
+                            <div class="space-y-1.5">
+                                {% for ft in eval.forced_tasks %}
+                                <div class="flex items-center justify-between gap-2 bg-brass/5 border border-brassdim/30 rounded-md px-3 py-2">
+                                    <span class="text-xs font-medium text-ink truncate">{{ ft.task.title }}</span>
+                                    <span class="text-[11px] font-mono text-brass shrink-0">{{ '%02d:00'|format(ft.forced_start_hour|int) }}</span>
+                                </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                        {% endif %}
+                    </div>
+                    {% endif %}
+
+                    {{ day_editor_modal(item, eval, tasks) }}
+
+                    {% endfor %}
+                </div>
+            </div>
+
+        </div>
+    </main>
+
+    <!-- MODAL: CONFIGURACIÓN -->
+    {% macro label_tip(text, tip_id, tip, small=False) %}
+    <div class="flex items-center gap-1.5 mb-1.5">
+        <label class="block {{ 'text-[10px]' if small else 'text-[11px] font-semibold uppercase tracking-wide' }} text-ink3">{{ text }}</label>
+        <button type="button" onclick="toggleTip('{{ tip_id }}')" class="text-ink3 hover:text-chalk shrink-0" aria-label="Ayuda: {{ text }}">
+            <svg class="w-3 h-3"><use href="#i-help"/></svg>
+        </button>
+    </div>
+    <p id="tip-{{ tip_id }}" class="hidden text-[11px] text-ink2 bg-canvas/50 border border-hairline rounded-md px-2.5 py-2 mb-2 leading-snug">{{ tip }}</p>
+    {% endmacro %}
+
+    {% macro checkbox_tip(name, text, tip_id, tip, checked) %}
+    <div>
+      <label class="flex items-center gap-3 cursor-pointer">
+          <input type="checkbox" name="{{ name }}" value="true" {% if checked %}checked{% endif %} class="w-4 h-4 rounded border-hairline bg-surface2 text-brass focus:ring-brass">
+          <span class="text-xs text-ink2 font-medium flex-1">{{ text }}</span>
+          <button type="button" onclick="toggleTip('{{ tip_id }}')" class="text-ink3 hover:text-chalk shrink-0" aria-label="Ayuda: {{ text }}">
+              <svg class="w-3 h-3"><use href="#i-help"/></svg>
+          </button>
+      </label>
+      <p id="tip-{{ tip_id }}" class="hidden text-[11px] text-ink2 bg-canvas/50 border border-hairline rounded-md px-2.5 py-2 mt-1.5 ml-7 leading-snug">{{ tip }}</p>
+    </div>
+    {% endmacro %}
+
+    <div id="settings-modal" class="fixed inset-0 z-[110] bg-canvas/85 backdrop-blur-sm hidden flex items-center justify-center p-4">
+        <div class="bg-surface border border-hairline rounded-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto p-5 sm:p-6 shadow-panel relative">
+            <div class="flex items-center justify-between border-b border-hairline pb-4 mb-5">
+                <h3 class="font-display text-lg font-semibold text-ink">Parámetros y ubicación</h3>
+                <button type="button" onclick="closeSettingsModal()" aria-label="Cerrar" class="text-ink3 hover:text-ink w-8 h-8 flex items-center justify-center rounded-md bg-surface2">
+                    <svg class="w-4 h-4"><use href="#i-close"/></svg>
+                </button>
+            </div>
+
+            <form action="/settings/update" method="post" class="space-y-4">
+                <div>
+                    <div class="flex items-center justify-between mb-1.5">
+                        <div class="flex items-center gap-1.5">
+                            <label class="block text-[11px] font-semibold text-ink3 uppercase tracking-wide">Ubicación</label>
+                            <button type="button" onclick="toggleTip('location')" class="text-ink3 hover:text-chalk shrink-0" aria-label="Ayuda: Ubicación">
+                                <svg class="w-3 h-3"><use href="#i-help"/></svg>
+                            </button>
+                        </div>
+                        <button type="button" onclick="toggleLocationMap()" class="flex items-center gap-1.5 text-[11px] font-semibold text-chalk hover:text-chalk/80">
+                            <svg class="w-3.5 h-3.5"><use href="#i-pin"/></svg> Elegir en el mapa
+                        </button>
+                    </div>
+                    <p id="tip-location" class="hidden text-[11px] text-ink2 bg-canvas/50 border border-hairline rounded-md px-2.5 py-2 mb-2 leading-snug">Ubicación del taller. Se usa para pedir el pronóstico del clima.</p>
+                    <div class="grid grid-cols-2 gap-3 sm:gap-4">
+                        <div>
+                            <input type="number" step="0.0001" id="input-latitude" name="latitude" value="{{ app_settings.latitude if app_settings else -32.99 }}" class="w-full bg-surface2 border border-hairline text-ink rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:border-brass">
+                        </div>
+                        <div>
+                            <input type="number" step="0.0001" id="input-longitude" name="longitude" value="{{ app_settings.longitude if app_settings else -71.27 }}" class="w-full bg-surface2 border border-hairline text-ink rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:border-brass">
+                        </div>
+                    </div>
+
+                    <!-- Panel de mapa (oculto por defecto) -->
+                    <div id="location-map-panel" class="hidden mt-3 space-y-2">
+                        <div class="flex items-center gap-2">
+                            <div class="relative flex-1">
+                                <svg class="w-3.5 h-3.5 text-ink3 absolute left-3 top-1/2 -translate-y-1/2"><use href="#i-search"/></svg>
+                                <input type="text" id="map-search-input" placeholder="Buscar dirección o ciudad..." class="w-full bg-surface2 border border-hairline text-ink rounded-lg pl-9 pr-3 py-2 text-sm focus:outline-none focus:border-chalk">
+                            </div>
+                            <button type="button" onclick="searchMapLocation()" class="bg-chalk/15 hover:bg-chalk/25 text-chalk px-3 py-2 rounded-lg text-xs font-semibold whitespace-nowrap">Buscar</button>
+                        </div>
+                        <div id="location-map" class="w-full h-56 rounded-lg border border-hairline overflow-hidden"></div>
+                        <p class="text-[11px] text-ink3">Toca el mapa para fijar el punto. Los campos de arriba se actualizan solos.</p>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-3 sm:gap-4">
+                    <div>
+                        {{ label_tip("Inicio jornada", "start-hour", "Hora en que puede empezar a evaluarse trabajo ese día.") }}
+                        <input type="number" name="operational_start_hour" min="0" max="23" value="{{ app_settings.operational_start_hour if app_settings else 9 }}" class="w-full bg-surface2 border border-hairline text-ink rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:border-brass">
+                    </div>
+                    <div>
+                        {{ label_tip("Fin jornada", "end-hour", "Hora límite del día. Todo (setup + trabajo + teardown) debe caber antes de esto.") }}
+                        <input type="number" name="operational_end_hour" min="0" max="23" value="{{ app_settings.operational_end_hour if app_settings else 18 }}" class="w-full bg-surface2 border border-hairline text-ink rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:border-brass">
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-3 sm:gap-4">
+                    <div>
+                        {{ label_tip("Humedad máxima (%)", "humidity", "Si la humedad del aire supera este valor durante el trabajo, se bloquea la ventana.") }}
+                        <input type="number" name="max_humidity_percent" min="0" max="100" value="{{ app_settings.max_humidity_percent if app_settings else 80 }}" class="w-full bg-surface2 border border-hairline text-ink rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:border-brass">
+                    </div>
+                    <div>
+                        {{ label_tip("Umbral de lluvia (mm)", "rain-threshold", "A partir de cuántos mm por hora se considera que 'está lloviendo'. Más bajo = más estricto (bloquea con poca lluvia). Más alto = más tolerante.") }}
+                        <input type="number" step="0.1" min="0" name="min_rain_precipitation_mm" value="{{ app_settings.min_rain_precipitation_mm if app_settings else 0.2 }}" class="w-full bg-surface2 border border-hairline text-ink rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:border-brass">
+                    </div>
+                </div>
+
+                <div class="pt-1">
+                    <p class="text-[11px] font-semibold text-ink3 uppercase tracking-wide mb-2">Tiempos operativos</p>
+                    <div class="grid grid-cols-2 gap-3 sm:gap-4">
+                        <div>
+                            {{ label_tip("Setup (h)", "setup", "Tiempo fijo de preparación antes de empezar a trabajar (sacar herramientas, ordenar, etc.).", small=True) }}
+                            <input type="number" step="0.5" min="0" name="setup_hours" value="{{ app_settings.setup_hours if app_settings else 1.0 }}" class="w-full bg-surface2 border border-hairline text-ink rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:border-brass">
+                        </div>
+                        <div>
+                            {{ label_tip("Teardown (h)", "teardown", "Tiempo fijo de cierre al final (guardar herramientas, limpiar).", small=True) }}
+                            <input type="number" step="0.5" min="0" name="teardown_hours" value="{{ app_settings.teardown_hours if app_settings else 1.0 }}" class="w-full bg-surface2 border border-hairline text-ink rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:border-brass">
+                        </div>
+                        <div>
+                            {{ label_tip("Trabajo mínimo (h)", "min-work", "Si no se puede agendar al menos esta cantidad de horas activas, ese día se descarta.", small=True) }}
+                            <input type="number" step="0.5" min="0" name="min_work_hours" value="{{ app_settings.min_work_hours if app_settings else 1.0 }}" class="w-full bg-surface2 border border-hairline text-ink rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:border-brass">
+                        </div>
+                        <div>
+                            {{ label_tip("Mínimo salvo tarea final (h)", "min-work-final", "No vale la pena abrir el taller por menos de esto — salvo que sea la última tarea que te queda en todo el backlog, ahí se agenda igual aunque sea corta.", small=True) }}
+                            <input type="number" step="0.5" min="0" name="min_work_hours_unless_final" value="{{ app_settings.min_work_hours_unless_final if app_settings else 4.0 }}" class="w-full bg-surface2 border border-hairline text-ink rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:border-brass">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="pt-1">
+                    <p class="text-[11px] font-semibold text-ink3 uppercase tracking-wide mb-2">Días no laborables</p>
+                    <div class="space-y-3">
+                        {{ checkbox_tip("exclude_saturdays", "Excluir sábados", "excl-sat", "Nunca agenda trabajo ese día de la semana, sin importar el clima.", app_settings and app_settings.exclude_saturdays) }}
+                        {{ checkbox_tip("exclude_sundays", "Excluir domingos", "excl-sun", "Nunca agenda trabajo ese día de la semana, sin importar el clima.", app_settings and app_settings.exclude_sundays) }}
+                        {{ checkbox_tip("exclude_holidays", "Excluir feriados (Chile)", "excl-hol", "Consulta los feriados oficiales de Chile del año y nunca agenda trabajo esos días.", app_settings and app_settings.exclude_holidays) }}
+                        {{ checkbox_tip("require_curing_before_cutoff", "Exigir que el curado termine antes del cierre de jornada", "curing-cutoff", "Si está activado, una tarea con curado solo se agenda si el secado también termina antes del fin de jornada (no puede quedar curando toda la noche sin vigilancia).", app_settings and app_settings.require_curing_before_cutoff) }}
+                    </div>
+                </div>
+
+                <div class="flex items-center gap-3 pt-4 border-t border-hairline mt-5">
+                    <button type="button" onclick="closeSettingsModal()" class="flex-1 bg-surface2 hover:bg-hairline text-ink2 font-semibold py-3 rounded-lg text-sm transition-colors">Cancelar</button>
+                    <button type="submit" class="flex-1 bg-brass hover:bg-brassdim text-canvas font-semibold py-3 rounded-lg text-sm transition-colors">Guardar ajustes</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div id="toast" class="fixed bottom-6 right-6 left-6 sm:left-auto z-[100] bg-moss text-canvas px-5 py-3 rounded-lg font-semibold text-sm shadow-2xl hidden toast-animate"></div>
+
+    <script>
+        function openSettingsModal() { document.getElementById('settings-modal').classList.remove('hidden'); }
+        function closeSettingsModal() { document.getElementById('settings-modal').classList.add('hidden'); }
+        function toggleTip(tipId) {
+            document.getElementById('tip-' + tipId).classList.toggle('hidden');
+        }
+        function toggleHistory() {
+            document.getElementById('history-panel').classList.toggle('hidden');
+            document.getElementById('history-chevron').classList.toggle('rotate-180');
+        }
+        function useFavoriteInForm(id, title, category, estimatedHours, curingHours) {
+            switchTab('manual');
+            document.getElementById('manual-title').value = title;
+            document.getElementById('manual-category').value = category;
+            document.getElementById('manual-estimated-hours').value = estimatedHours;
+            document.getElementById('manual-curing-hours').value = curingHours;
+            document.getElementById('manual-title').focus();
+        }
+        function toggleDayEditor(dateIso) {
+            document.getElementById('day-editor-' + dateIso).classList.toggle('hidden');
+        }
+
+        // ── Mapa de ubicación (Leaflet + OpenStreetMap) ──
+        let locationMap = null;
+        let locationMarker = null;
+
+        function setLocationPin(lat, lon, recenter) {
+            document.getElementById('input-latitude').value = lat.toFixed(4);
+            document.getElementById('input-longitude').value = lon.toFixed(4);
+            if (locationMarker) {
+                locationMarker.setLatLng([lat, lon]);
+            }
+            if (recenter && locationMap) {
+                locationMap.setView([lat, lon], 12);
+            }
+        }
+
+        function toggleLocationMap() {
+            const panel = document.getElementById('location-map-panel');
+            const wasHidden = panel.classList.contains('hidden');
+            panel.classList.toggle('hidden');
+            if (!wasHidden) return; // se estaba cerrando, nada más que hacer
+
+            const lat = parseFloat(document.getElementById('input-latitude').value) || -32.99;
+            const lon = parseFloat(document.getElementById('input-longitude').value) || -71.27;
+
+            if (!locationMap) {
+                locationMap = L.map('location-map').setView([lat, lon], 11);
+                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                    attribution: '&copy; OpenStreetMap',
+                    maxZoom: 18
+                }).addTo(locationMap);
+                locationMarker = L.marker([lat, lon], { draggable: true }).addTo(locationMap);
+                locationMarker.on('dragend', () => {
+                    const p = locationMarker.getLatLng();
+                    setLocationPin(p.lat, p.lng, false);
+                });
+                locationMap.on('click', (e) => {
+                    setLocationPin(e.latlng.lat, e.latlng.lng, false);
+                });
+            }
+            // El mapa se inicializa mientras el panel estaba oculto (0 alto) — hay que forzar el recálculo de tamaño
+            setTimeout(() => { locationMap.invalidateSize(); locationMap.setView([lat, lon], locationMap.getZoom()); }, 150);
+        }
+
+        function searchMapLocation() {
+            const query = document.getElementById('map-search-input').value.trim();
+            if (!query) return;
+            fetch(`https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${encodeURIComponent(query)}`)
+                .then(res => res.json())
+                .then(results => {
+                    if (!results || results.length === 0) {
+                        showToast('No se encontró esa dirección');
+                        return;
+                    }
+                    const { lat, lon } = results[0];
+                    setLocationPin(parseFloat(lat), parseFloat(lon), true);
+                })
+                .catch(() => showToast('Error buscando la dirección'));
+        }
+        function toggleEditTask(taskId) {
+            document.getElementById('edit-task-' + taskId).classList.toggle('hidden');
+        }
+        function switchTab(tabName) {
+            const indicator = document.getElementById('pill-indicator');
+            const btnManual = document.getElementById('tab-btn-manual');
+            const btnJson = document.getElementById('tab-btn-json');
+            const tabManual = document.getElementById('tab-manual');
+            const tabJson = document.getElementById('tab-json');
+            if (tabName === 'manual') {
+                indicator.classList.remove('right');
+                btnManual.classList.replace('text-ink2', 'text-canvas');
+                btnJson.classList.replace('text-canvas', 'text-ink2');
+                tabManual.classList.remove('hidden'); tabJson.classList.add('hidden');
+            } else {
+                indicator.classList.add('right');
+                btnJson.classList.replace('text-ink2', 'text-canvas');
+                btnManual.classList.replace('text-canvas', 'text-ink2');
+                tabJson.classList.remove('hidden'); tabManual.classList.add('hidden');
+            }
+        }
+        function copyAiPrompt() {
+            const prompt = `Actúa como Jefe de proyecto. Genera el desglose de tareas en formato JSON: {"project_name": "...", "tasks": [{"title": "...", "category": "carpentry", "estimated_hours": 1.0, "curing_hours": 0.0}]}`;
+            navigator.clipboard.writeText(prompt).then(() => showToast('Prompt copiado'));
+        }
+        function importJsonTasks() {
+            const jsonText = document.getElementById('json-import-input').value.trim();
+            if (!jsonText) return;
+            fetch('/tasks/import', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: jsonText })
+            .then(res => res.json()).then(data => { if(data.status==='success') { showToast(data.message); setTimeout(()=>window.location.reload(), 800); } });
+        }
+        function showToast(msg) {
+            const t = document.getElementById('toast'); t.innerText = msg; t.classList.remove('hidden');
+            setTimeout(() => t.classList.add('hidden'), 3000);
+        }
+    </script>
+</body>
+</html>
