@@ -5,7 +5,13 @@ from sqlmodel import SQLModel, Field, Session, select
 
 # Paths y Base de Datos
 BASE_DIR = Path(__file__).resolve().parent
-DATABASE_PATH = BASE_DIR / "workshop.db"
+
+# DATA_DIR: carpeta donde vive workshop.db. En producción (Docker) debe apuntar
+# a un volumen persistente montado (ej. /data), para no perder la BD en cada
+# redeploy/reinicio del contenedor. Por defecto usa la carpeta del proyecto
+# (comportamiento local de siempre, sin cambios si no se define nada).
+DATA_DIR = Path(os.getenv("DATA_DIR", str(BASE_DIR)))
+DATABASE_PATH = DATA_DIR / "workshop.db"
 DATABASE_URL = os.getenv("DATABASE_URL", f"sqlite:///{DATABASE_PATH}")
 
 # Ubicación y Zona Horaria
@@ -52,6 +58,8 @@ class AppSettings(SQLModel, table=True):
     min_work_hours: float = Field(default=MIN_WORK_HOURS)
     min_work_hours_unless_final: float = Field(default=MIN_WORK_HOURS_UNLESS_FINAL)
     min_rain_precipitation_mm: float = Field(default=MIN_RAIN_PRECIPITATION_MM)
+    checkin_hour: int = Field(default=19)  # hora fija del check-in de cierre (no depende de cuándo cierra la ventana calculada)
+    morning_eval_lead_hours: int = Field(default=1)  # cuántas horas ANTES de operational_start_hour correr la evaluación matutina
 
 def get_app_settings(session: Session) -> AppSettings:
     """Recupera la configuración actual de la BD o la crea con valores por defecto."""

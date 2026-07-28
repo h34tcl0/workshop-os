@@ -41,6 +41,14 @@ def create_db_and_tables():
         _ensure_column(conn, "dailylog", "scheduled_task_ids", "TEXT", "NULL")
         _ensure_column(conn, "dailylog", "checkin_sent", "BOOLEAN", 0)
         _ensure_column(conn, "dailylog", "checkin_resolved", "BOOLEAN", 0)
+        _ensure_column(conn, "dailylog", "morning_climate_snapshot", "TEXT", "NULL")
+        _ensure_column(conn, "dailylog", "weather_alert_sent", "BOOLEAN", 0)
+        _ensure_column(conn, "dailylog", "weather_alert_message", "TEXT", "NULL")
+        _ensure_column(conn, "dailylog", "weather_alert_acknowledged", "BOOLEAN", 0)
+        _ensure_column(conn, "dailylog", "weather_alert_retry_count", "INTEGER", 0)
+        _ensure_column(conn, "dailylog", "weather_alert_last_sent_at", "DATETIME", "NULL")
+        _ensure_column(conn, "appsettings", "checkin_hour", "INTEGER", 19)
+        _ensure_column(conn, "appsettings", "morning_eval_lead_hours", "INTEGER", 1)
 
         # Migración de datos (una sola vez): si ya tenías 'exclude_weekends' activado,
         # trasládalo a las 2 columnas nuevas para no perder el comportamiento silenciosamente.

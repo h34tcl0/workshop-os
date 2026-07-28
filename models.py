@@ -63,6 +63,12 @@ class DailyLog(SQLModel, table=True):
     calendar_created: bool = Field(default=False)
     checkin_sent: bool = Field(default=False)      # ya se mandó la pregunta de check-in nocturno
     checkin_resolved: bool = Field(default=False)  # el usuario ya respondió (sí/no importa cuál)
+    morning_climate_snapshot: Optional[str] = None  # JSON del mapa climático calculado esta mañana, para comparar contra chequeos posteriores
+    weather_alert_sent: bool = Field(default=False)       # ya se detectó un cambio de clima nuevo hoy (una sola alerta por día)
+    weather_alert_message: Optional[str] = None           # el motivo exacto detectado, para poder reenviarlo igual en cada reintento
+    weather_alert_acknowledged: bool = Field(default=False)  # el usuario ya apretó "OK, ya lo vi"
+    weather_alert_retry_count: int = Field(default=0)     # cuántas rondas de reintento (ráfaga de 3) se han mandado, máx 6
+    weather_alert_last_sent_at: Optional[datetime] = None  # cuándo se mandó la última ráfaga, para saber cuándo toca la próxima
     updated_at: datetime = Field(default_factory=datetime.utcnow)
 
 class FavoriteTask(SQLModel, table=True):
@@ -122,3 +128,6 @@ class DayEvaluation(BaseModel): # Mantén la clase base que tengas (BaseModel o 
     bar_segments: Optional[Dict[str, Any]] = None
     forced_tasks: List[Dict[str, Any]] = []  # [{"task": Task, "forced_start_hour": float}] — se saltan el motor por completo
     is_manually_blocked: bool = False  # True si el día fue forzado a bloqueado desde el editor
+    climate_segments: List[Dict[str, Any]] = []  # tramos de la jornada: clear/rain/humid, para dibujar la barra siempre
+    free_windows: List[Dict[str, Any]] = []  # ventanas continuas libres de clima malo, sin mirar tareas
+    climate_only_status: str = "clear"  # "clear" (hay ventana decente) | "blocked" (clima malo casi toda la jornada)

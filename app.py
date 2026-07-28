@@ -32,6 +32,7 @@ app = FastAPI(title="Workshop OS - Web Dashboard", version="1.1.0", lifespan=lif
 
 # Setup Templates
 templates = Jinja2Templates(directory="templates")
+app.mount("/static", StaticFiles(directory="static"), name="static")
 
 CATEGORY_LABELS = {
     TaskCategory.CARPENTRY.value: "🛠️ Carpintería General",
@@ -170,7 +171,9 @@ def update_settings(
     teardown_hours: float = Form(1.0),
     min_work_hours: float = Form(1.0),
     min_work_hours_unless_final: float = Form(4.0),
-    min_rain_precipitation_mm: float = Form(0.2)
+    min_rain_precipitation_mm: float = Form(0.2),
+    checkin_hour: int = Form(19),
+    morning_eval_lead_hours: int = Form(1)
 ):
     with Session(engine) as session:
         settings = get_app_settings(session)
@@ -188,6 +191,8 @@ def update_settings(
         settings.min_work_hours = min_work_hours
         settings.min_work_hours_unless_final = min_work_hours_unless_final
         settings.min_rain_precipitation_mm = min_rain_precipitation_mm
+        settings.checkin_hour = checkin_hour
+        settings.morning_eval_lead_hours = morning_eval_lead_hours
 
         session.add(settings)
         session.commit()

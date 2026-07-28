@@ -42,48 +42,7 @@
             },
         }
     </script>
-    <style>
-        body {
-            font-family: 'IBM Plex Sans', system-ui, sans-serif;
-            overflow-x: hidden;
-            background-color: #1B1714;
-            background-image:
-                linear-gradient(rgba(237,228,211,0.028) 1px, transparent 1px),
-                linear-gradient(90deg, rgba(237,228,211,0.028) 1px, transparent 1px);
-            background-size: 28px 28px;
-        }
-        .font-display { font-family: 'Fraunces', serif; font-variation-settings: 'opsz' 60; }
-        .hatch {
-            background-image: repeating-linear-gradient(
-                45deg,
-                rgba(237,228,211,0.05) 0px, rgba(237,228,211,0.05) 3px,
-                transparent 3px, transparent 9px
-            );
-        }
-        .tick-row span { font-variant-numeric: tabular-nums; }
-        .pill-switch { position: relative; }
-        .pill-indicator {
-            position: absolute; top: 3px; left: 3px;
-            height: calc(100% - 6px);
-            width: calc(50% - 3px);
-            border-radius: 9999px;
-            background: #C08A3E;
-            transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-            z-index: 0;
-        }
-        .pill-indicator.right { transform: translateX(100%); }
-        .task-card { transition: border-color 0.15s ease, background-color 0.15s ease; }
-        .task-card:hover { border-color: #8C6A38; }
-        @keyframes slideUp { from { transform: translateY(16px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
-        .toast-animate { animation: slideUp 0.25s ease-out; }
-        ::-webkit-scrollbar { width: 6px; height: 6px; }
-        ::-webkit-scrollbar-track { background: transparent; }
-        ::-webkit-scrollbar-thumb { background: #3A332C; border-radius: 999px; }
-        :focus-visible { outline: 2px solid #D9A24E; outline-offset: 2px; }
-        @media (prefers-reduced-motion: reduce) {
-            * { transition: none !important; animation: none !important; }
-        }
-    </style>
+    <link rel="stylesheet" href="/static/css/main.css">
 </head>
 <body class="bg-canvas text-ink min-h-screen antialiased overflow-x-hidden">
 
@@ -241,7 +200,7 @@
                 <!-- TASK LIST -->
                 <div class="space-y-2.5">
                     {% for task in tasks %}
-                    <div class="task-card bg-surface border border-hairline rounded-xl overflow-hidden">
+                    <div class="task-card bg-surface border border-hairline rounded-xl overflow-hidden" data-task-id="{{ task.id }}">
                         <div class="p-3.5 flex items-stretch gap-3">
                             <div class="flex flex-col gap-1 justify-center">
                                 <form action="/tasks/{{ task.id }}/move-up" method="post"><button type="submit" aria-label="Subir" class="w-7 h-7 rounded-md bg-surface2 hover:bg-hairline text-ink3 flex items-center justify-center"><svg class="w-3.5 h-3.5"><use href="#i-chev-up"/></svg></button></form>
@@ -450,12 +409,44 @@
                     </div>
                     {% endmacro %}
 
+                    {% macro climate_bar(climate_segments, start_limit, end_limit) %}
+                    {% set total_h = (end_limit - start_limit) if (end_limit - start_limit) > 0 else 1 %}
+                    <div class="rounded-lg border border-hairline bg-canvas/50 p-2.5">
+                        <div class="tick-row flex items-center justify-between text-[10px] font-mono text-ink3 mb-1.5 px-0.5">
+                            <span>{{ start_limit }}:00</span>
+                            <span>{{ end_limit }}:00</span>
+                        </div>
+                        <div class="relative h-8 rounded-md overflow-hidden flex ring-1 ring-hairline">
+                            {% for seg in climate_segments %}
+                            {% set width_pct = ((seg.end_h - seg.start_h) / total_h) * 100 %}
+                            {% if seg.condition == 'rain' %}
+                            <div class="h-full bg-rust border-r border-canvas flex items-center justify-center overflow-hidden" style="width: {{ width_pct }}%;" title="Lluvia {{ seg.start_h }}:00–{{ seg.end_h }}:00">
+                                <span class="text-[9px] sm:text-[10px] font-mono font-bold text-canvas whitespace-nowrap px-1">LLUVIA</span>
+                            </div>
+                            {% elif seg.condition == 'humid' %}
+                            <div class="h-full bg-brass border-r border-canvas flex items-center justify-center overflow-hidden" style="width: {{ width_pct }}%;" title="Humedad excesiva {{ seg.start_h }}:00–{{ seg.end_h }}:00">
+                                <span class="text-[9px] sm:text-[10px] font-mono font-bold text-canvas whitespace-nowrap px-1">HUMEDAD</span>
+                            </div>
+                            {% else %}
+                            <div class="h-full bg-moss border-r border-canvas flex items-center justify-center overflow-hidden" style="width: {{ width_pct }}%;" title="Libre {{ seg.start_h }}:00–{{ seg.end_h }}:00">
+                                <span class="text-[9px] sm:text-[10px] font-mono font-bold text-canvas whitespace-nowrap px-1">LIBRE</span>
+                            </div>
+                            {% endif %}
+                            {% endfor %}
+                        </div>
+                    </div>
+                    {% endmacro %}
+
                     {% for item in forecast_evaluations %}
 
                     {% set eval = item.evaluation if item.evaluation is defined else item %}
                     {% set is_viable = (eval.status.value == 'DAY_VIABLE') if eval.status.value is defined else (eval.status == 'DAY_VIABLE') %}
                     {% set seg = eval.bar_segments if eval.bar_segments is defined else item.bar_segments %}
                     {% set cond = eval.weather_summary.condition if eval.weather_summary and eval.weather_summary.condition is defined else 'sunny' %}
+                    {% set is_manual_block = eval.is_manually_blocked if eval.is_manually_blocked is defined else False %}
+                    {% set is_amber = (not is_viable) and (not is_manual_block) and (eval.climate_only_status == 'clear') %}
+                    {% set start_limit = app_settings.operational_start_hour %}
+                    {% set end_limit = app_settings.operational_end_hour %}
 
                     {% if is_viable %}
                     <!-- ── DÍA VIABLE ── -->
@@ -503,9 +494,19 @@
                             </div>
                             <div class="relative h-8 rounded-md overflow-hidden flex ring-1 ring-hairline">
 
-                                {% if seg.pct_closed_before and seg.pct_closed_before > 0 %}
-                                <div class="hatch h-full bg-surface2 border-r border-canvas" style="width: {{ seg.pct_closed_before }}%;" title="Cerrado {{ seg.closed_before_h }}h"></div>
+                                {% for bseg in seg.before_segments if seg.before_segments %}
+                                {% if bseg.condition == 'rain' %}
+                                <div class="h-full bg-rust/70 border-r border-canvas flex items-center justify-center overflow-hidden" style="width: {{ bseg.pct }}%;" title="Lluvia {{ bseg.start_h|int }}:00–{{ bseg.end_h|int }}:00">
+                                    <span class="text-[8px] sm:text-[9px] font-mono font-semibold text-canvas whitespace-nowrap px-1">LLUVIA</span>
+                                </div>
+                                {% elif bseg.condition == 'humid' %}
+                                <div class="h-full bg-brass/50 border-r border-canvas flex items-center justify-center overflow-hidden" style="width: {{ bseg.pct }}%;" title="Humedad {{ bseg.start_h|int }}:00–{{ bseg.end_h|int }}:00">
+                                    <span class="text-[8px] sm:text-[9px] font-mono font-semibold text-canvas whitespace-nowrap px-1">HUMEDAD</span>
+                                </div>
+                                {% else %}
+                                <div class="h-full bg-moss/25 border-r border-canvas" style="width: {{ bseg.pct }}%;" title="Libre {{ bseg.start_h|int }}:00–{{ bseg.end_h|int }}:00"></div>
                                 {% endif %}
+                                {% endfor %}
 
                                 <div class="h-full bg-brass border-r border-canvas flex items-center justify-center overflow-hidden" style="width: {{ seg.pct_setup if seg.pct_setup is defined else 10 }}%;" title="Preparación {{ seg.setup_h if seg.setup_h is defined else 1 }}h">
                                     <span class="text-[9px] sm:text-[10px] font-mono font-bold text-canvas whitespace-nowrap px-1">PREP</span>
@@ -525,9 +526,19 @@
                                 </div>
                                 {% endif %}
 
-                                {% if seg.pct_closed_after and seg.pct_closed_after > 0 %}
-                                <div class="hatch h-full bg-surface2" style="width: {{ seg.pct_closed_after }}%;" title="Cerrado {{ seg.closed_after_h }}h"></div>
+                                {% for aseg in seg.after_segments if seg.after_segments %}
+                                {% if aseg.condition == 'rain' %}
+                                <div class="h-full bg-rust/70 border-r border-canvas flex items-center justify-center overflow-hidden" style="width: {{ aseg.pct }}%;" title="Lluvia {{ aseg.start_h|int }}:00–{{ aseg.end_h|int }}:00">
+                                    <span class="text-[8px] sm:text-[9px] font-mono font-semibold text-canvas whitespace-nowrap px-1">LLUVIA</span>
+                                </div>
+                                {% elif aseg.condition == 'humid' %}
+                                <div class="h-full bg-brass/50 border-r border-canvas flex items-center justify-center overflow-hidden" style="width: {{ aseg.pct }}%;" title="Humedad {{ aseg.start_h|int }}:00–{{ aseg.end_h|int }}:00">
+                                    <span class="text-[8px] sm:text-[9px] font-mono font-semibold text-canvas whitespace-nowrap px-1">HUMEDAD</span>
+                                </div>
+                                {% else %}
+                                <div class="h-full bg-moss/25 border-r border-canvas" style="width: {{ aseg.pct }}%;" title="Libre {{ aseg.start_h|int }}:00–{{ aseg.end_h|int }}:00"></div>
                                 {% endif %}
+                                {% endfor %}
 
                             </div>
                         </div>
@@ -557,11 +568,15 @@
                         </div>
                         {% endif %}
 
-                        <!-- Tareas Asignadas -->
+                        <!-- Tareas Asignadas (colapsable, redundante con el cronograma de arriba) -->
                         {% if eval.scheduled_tasks %}
+                        {% set panel_id = 'assigned-' + item.date.isoformat() %}
                         <div class="border-t border-hairline pt-3">
-                            <p class="text-[11px] text-ink3 font-semibold uppercase tracking-wider mb-2">Tareas asignadas</p>
-                            <div class="space-y-1.5">
+                            <button type="button" onclick="toggleAssignedTasks('{{ panel_id }}')" class="w-full flex items-center justify-between text-left">
+                                <span class="text-[11px] text-ink3 font-semibold uppercase tracking-wider">Tareas asignadas ({{ eval.scheduled_tasks|length }})</span>
+                                <svg class="w-3.5 h-3.5 text-ink3"><use href="#i-chevron-down-sm"/></svg>
+                            </button>
+                            <div id="{{ panel_id }}" class="hidden space-y-1.5 mt-2">
                                 {% for task in eval.scheduled_tasks %}
                                 <div class="flex items-center justify-between gap-2 bg-canvas/40 border border-hairline rounded-md px-3 py-2">
                                     <div class="flex items-center gap-2 min-w-0">
@@ -597,8 +612,99 @@
                         {% endif %}
                     </div>
 
+                    {% elif is_amber %}
+                    <!-- ── CLIMA BUENO, SIN PLAN (ámbar) ── -->
+                    <div class="bg-surface border border-brassdim/30 rounded-2xl p-4 sm:p-5">
+                        <div class="flex items-center justify-between gap-2 mb-2">
+                            <span class="font-display text-base sm:text-lg font-semibold text-ink flex items-center gap-2 min-w-0">
+                                <span class="truncate">{{ item.date_str if item.date_str is defined else eval.date_str }}</span>
+                                <svg class="w-4 h-4 text-brass shrink-0">
+                                    {% if cond == 'rain' %}<use href="#i-cloud-rain"/>{% elif cond == 'cloudy' %}<use href="#i-cloud"/>{% elif cond == 'partly' %}<use href="#i-cloud-sun"/>{% else %}<use href="#i-sun"/>{% endif %}
+                                </svg>
+                            </span>
+                            <div class="flex items-center gap-1.5 shrink-0">
+                                <button type="button" onclick="toggleDayEditor('{{ item.date.isoformat() }}')" aria-label="Editar día" class="w-6 h-6 rounded-md bg-surface2 hover:bg-hairline text-ink3 flex items-center justify-center">
+                                    <svg class="w-3 h-3"><use href="#i-edit"/></svg>
+                                </button>
+                                <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-brass/10 text-brass border border-brassdim/30 whitespace-nowrap">
+                                    Clima bueno, sin plan
+                                </span>
+                            </div>
+                        </div>
+                        <p class="text-xs text-ink3 mb-4">
+                            Jornada {{ start_limit }}:00–{{ end_limit }}:00 ·
+                            <span class="text-ink2 font-mono">{{ eval.weather_summary.min_temp }}°–{{ eval.weather_summary.max_temp }}°C</span>
+                            · sin tareas agendadas este día
+                        </p>
+
+                        {{ climate_bar(eval.climate_segments, start_limit, end_limit) }}
+
+                        {% if eval.free_windows %}
+                        <div class="mt-3">
+                            <p class="text-[11px] text-ink3 font-semibold uppercase tracking-wider mb-2">Ventanas libres</p>
+                            <div class="space-y-1.5">
+                                {% for w in eval.free_windows %}
+                                <div class="flex items-center justify-between gap-2 bg-canvas/40 border border-hairline rounded-md px-3 py-2">
+                                    <span class="text-xs font-medium text-ink">{{ w.start_label }} — {{ w.end_label }}</span>
+                                    <span class="text-[11px] font-mono text-moss shrink-0">{{ w.duration_hours }}h libres</span>
+                                </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                        {% endif %}
+
+                        {% if eval.forced_tasks %}
+                        <div class="mt-3 pt-3 border-t border-hairline">
+                            <p class="text-[11px] text-brass font-semibold uppercase tracking-wider mb-2">⚡ Forzadas</p>
+                            <div class="space-y-1.5">
+                                {% for ft in eval.forced_tasks %}
+                                <div class="flex items-center justify-between gap-2 bg-brass/5 border border-brassdim/30 rounded-md px-3 py-2">
+                                    <span class="text-xs font-medium text-ink truncate">{{ ft.task.title }}</span>
+                                    <span class="text-[11px] font-mono text-brass shrink-0">{{ '%02d:00'|format(ft.forced_start_hour|int) }}</span>
+                                </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                        {% endif %}
+                    </div>
+
+                    {% elif is_manual_block %}
+                    <!-- ── BLOQUEADO MANUALMENTE (decisión tuya, no del clima) ── -->
+                    <div class="bg-surface border border-hairline rounded-2xl p-4 sm:p-5">
+                        <div class="flex items-center justify-between gap-2 mb-2">
+                            <span class="font-display text-base sm:text-lg font-semibold text-ink2 flex items-center gap-2 min-w-0">
+                                <span class="truncate">{{ item.date_str if item.date_str is defined else eval.date_str }}</span>
+                            </span>
+                            <div class="flex items-center gap-1.5 shrink-0">
+                                <button type="button" onclick="toggleDayEditor('{{ item.date.isoformat() }}')" aria-label="Editar día" class="w-6 h-6 rounded-md bg-surface2 hover:bg-hairline text-ink3 flex items-center justify-center">
+                                    <svg class="w-3 h-3"><use href="#i-edit"/></svg>
+                                </button>
+                                <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-surface2 text-ink3 border border-hairline whitespace-nowrap">
+                                    Bloqueado manualmente
+                                </span>
+                            </div>
+                        </div>
+                        <div class="bg-canvas/40 border border-hairline rounded-lg px-3.5 py-2.5 text-xs text-ink2">
+                            <strong class="font-semibold text-ink2">Motivo — </strong>{{ eval.reason }}
+                        </div>
+
+                        {% if eval.forced_tasks %}
+                        <div class="mt-3 pt-3 border-t border-hairline">
+                            <p class="text-[11px] text-brass font-semibold uppercase tracking-wider mb-2">⚡ Forzadas a pesar del bloqueo</p>
+                            <div class="space-y-1.5">
+                                {% for ft in eval.forced_tasks %}
+                                <div class="flex items-center justify-between gap-2 bg-brass/5 border border-brassdim/30 rounded-md px-3 py-2">
+                                    <span class="text-xs font-medium text-ink truncate">{{ ft.task.title }}</span>
+                                    <span class="text-[11px] font-mono text-brass shrink-0">{{ '%02d:00'|format(ft.forced_start_hour|int) }}</span>
+                                </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                        {% endif %}
+                    </div>
+
                     {% else %}
-                    <!-- ── DÍA SUSPENDIDO ── -->
+                    <!-- ── DÍA SUSPENDIDO (clima realmente malo) ── -->
                     <div class="bg-surface border border-rust/20 rounded-2xl p-4 sm:p-5">
                         <div class="flex items-center justify-between gap-2 mb-2">
                             <span class="font-display text-base sm:text-lg font-semibold text-ink2 flex items-center gap-2 min-w-0">
@@ -619,6 +725,13 @@
                         <p class="text-xs text-ink3 mb-3">
                             <span class="text-ink2 font-mono">{{ eval.weather_summary.min_temp }}°–{{ eval.weather_summary.max_temp }}°C</span>
                         </p>
+
+                        {% if eval.climate_segments %}
+                        <div class="mb-3">
+                            {{ climate_bar(eval.climate_segments, start_limit, end_limit) }}
+                        </div>
+                        {% endif %}
+
                         <div class="bg-canvas/40 border border-rust/20 rounded-lg px-3.5 py-2.5 text-xs text-ink2">
                             <strong class="font-semibold text-rust">Motivo — </strong>{{ eval.reason }}
                         </div>
@@ -763,6 +876,20 @@
                 </div>
 
                 <div class="pt-1">
+                    <p class="text-[11px] font-semibold text-ink3 uppercase tracking-wide mb-2">Avisos y horarios</p>
+                    <div class="grid grid-cols-2 gap-3 sm:gap-4">
+                        <div>
+                            {{ label_tip("Hora de check-in de cierre", "checkin-hour", "A esta hora fija te pregunta por Telegram si terminaste las tareas de hoy. No depende de cuándo cierra la ventana calculada — el trabajo real nunca es cronométrico.", small=True) }}
+                            <input type="number" min="0" max="23" name="checkin_hour" value="{{ app_settings.checkin_hour if app_settings else 19 }}" class="w-full bg-surface2 border border-hairline text-ink rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:border-brass">
+                        </div>
+                        <div>
+                            {{ label_tip("Margen evaluación matutina (h)", "morning-lead", "Cuántas horas antes de que abra tu jornada se evalúa el clima del día y se manda el aviso matutino.", small=True) }}
+                            <input type="number" min="0" max="12" name="morning_eval_lead_hours" value="{{ app_settings.morning_eval_lead_hours if app_settings else 1 }}" class="w-full bg-surface2 border border-hairline text-ink rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:border-brass">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="pt-1">
                     <p class="text-[11px] font-semibold text-ink3 uppercase tracking-wide mb-2">Días no laborables</p>
                     <div class="space-y-3">
                         {{ checkbox_tip("exclude_saturdays", "Excluir sábados", "excl-sat", "Nunca agenda trabajo ese día de la semana, sin importar el clima.", app_settings and app_settings.exclude_saturdays) }}
@@ -782,121 +909,9 @@
 
     <div id="toast" class="fixed bottom-6 right-6 left-6 sm:left-auto z-[100] bg-moss text-canvas px-5 py-3 rounded-lg font-semibold text-sm shadow-2xl hidden toast-animate"></div>
 
-    <script>
-        function openSettingsModal() { document.getElementById('settings-modal').classList.remove('hidden'); }
-        function closeSettingsModal() { document.getElementById('settings-modal').classList.add('hidden'); }
-        function toggleTip(tipId) {
-            document.getElementById('tip-' + tipId).classList.toggle('hidden');
-        }
-        function toggleHistory() {
-            document.getElementById('history-panel').classList.toggle('hidden');
-            document.getElementById('history-chevron').classList.toggle('rotate-180');
-        }
-        function useFavoriteInForm(id, title, category, estimatedHours, curingHours) {
-            switchTab('manual');
-            document.getElementById('manual-title').value = title;
-            document.getElementById('manual-category').value = category;
-            document.getElementById('manual-estimated-hours').value = estimatedHours;
-            document.getElementById('manual-curing-hours').value = curingHours;
-            document.getElementById('manual-title').focus();
-        }
-        function toggleDayEditor(dateIso) {
-            document.getElementById('day-editor-' + dateIso).classList.toggle('hidden');
-        }
-
-        // ── Mapa de ubicación (Leaflet + OpenStreetMap) ──
-        let locationMap = null;
-        let locationMarker = null;
-
-        function setLocationPin(lat, lon, recenter) {
-            document.getElementById('input-latitude').value = lat.toFixed(4);
-            document.getElementById('input-longitude').value = lon.toFixed(4);
-            if (locationMarker) {
-                locationMarker.setLatLng([lat, lon]);
-            }
-            if (recenter && locationMap) {
-                locationMap.setView([lat, lon], 12);
-            }
-        }
-
-        function toggleLocationMap() {
-            const panel = document.getElementById('location-map-panel');
-            const wasHidden = panel.classList.contains('hidden');
-            panel.classList.toggle('hidden');
-            if (!wasHidden) return; // se estaba cerrando, nada más que hacer
-
-            const lat = parseFloat(document.getElementById('input-latitude').value) || -32.99;
-            const lon = parseFloat(document.getElementById('input-longitude').value) || -71.27;
-
-            if (!locationMap) {
-                locationMap = L.map('location-map').setView([lat, lon], 11);
-                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                    attribution: '&copy; OpenStreetMap',
-                    maxZoom: 18
-                }).addTo(locationMap);
-                locationMarker = L.marker([lat, lon], { draggable: true }).addTo(locationMap);
-                locationMarker.on('dragend', () => {
-                    const p = locationMarker.getLatLng();
-                    setLocationPin(p.lat, p.lng, false);
-                });
-                locationMap.on('click', (e) => {
-                    setLocationPin(e.latlng.lat, e.latlng.lng, false);
-                });
-            }
-            // El mapa se inicializa mientras el panel estaba oculto (0 alto) — hay que forzar el recálculo de tamaño
-            setTimeout(() => { locationMap.invalidateSize(); locationMap.setView([lat, lon], locationMap.getZoom()); }, 150);
-        }
-
-        function searchMapLocation() {
-            const query = document.getElementById('map-search-input').value.trim();
-            if (!query) return;
-            fetch(`https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${encodeURIComponent(query)}`)
-                .then(res => res.json())
-                .then(results => {
-                    if (!results || results.length === 0) {
-                        showToast('No se encontró esa dirección');
-                        return;
-                    }
-                    const { lat, lon } = results[0];
-                    setLocationPin(parseFloat(lat), parseFloat(lon), true);
-                })
-                .catch(() => showToast('Error buscando la dirección'));
-        }
-        function toggleEditTask(taskId) {
-            document.getElementById('edit-task-' + taskId).classList.toggle('hidden');
-        }
-        function switchTab(tabName) {
-            const indicator = document.getElementById('pill-indicator');
-            const btnManual = document.getElementById('tab-btn-manual');
-            const btnJson = document.getElementById('tab-btn-json');
-            const tabManual = document.getElementById('tab-manual');
-            const tabJson = document.getElementById('tab-json');
-            if (tabName === 'manual') {
-                indicator.classList.remove('right');
-                btnManual.classList.replace('text-ink2', 'text-canvas');
-                btnJson.classList.replace('text-canvas', 'text-ink2');
-                tabManual.classList.remove('hidden'); tabJson.classList.add('hidden');
-            } else {
-                indicator.classList.add('right');
-                btnJson.classList.replace('text-ink2', 'text-canvas');
-                btnManual.classList.replace('text-canvas', 'text-ink2');
-                tabJson.classList.remove('hidden'); tabManual.classList.add('hidden');
-            }
-        }
-        function copyAiPrompt() {
-            const prompt = `Actúa como Jefe de proyecto. Genera el desglose de tareas en formato JSON: {"project_name": "...", "tasks": [{"title": "...", "category": "carpentry", "estimated_hours": 1.0, "curing_hours": 0.0}]}`;
-            navigator.clipboard.writeText(prompt).then(() => showToast('Prompt copiado'));
-        }
-        function importJsonTasks() {
-            const jsonText = document.getElementById('json-import-input').value.trim();
-            if (!jsonText) return;
-            fetch('/tasks/import', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: jsonText })
-            .then(res => res.json()).then(data => { if(data.status==='success') { showToast(data.message); setTimeout(()=>window.location.reload(), 800); } });
-        }
-        function showToast(msg) {
-            const t = document.getElementById('toast'); t.innerText = msg; t.classList.remove('hidden');
-            setTimeout(() => t.classList.add('hidden'), 3000);
-        }
-    </script>
+    <script src="/static/js/backlog.js"></script>
+    <script src="/static/js/agenda.js"></script>
+    <script src="/static/js/settings.js"></script>
+    <script src="/static/js/map.js"></script>
 </body>
 </html>
