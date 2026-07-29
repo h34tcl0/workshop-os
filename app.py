@@ -444,11 +444,15 @@ def delete_task(task_id: int):
 def save_day_override(
     override_date: date,
     force_status: Optional[str] = Form(None),
-    custom_start_hour: Optional[int] = Form(None),
-    custom_end_hour: Optional[int] = Form(None),
+    custom_start_hour: Optional[str] = Form(None),  # <--- Cambiado de Optional[int] a Optional[str]
+    custom_end_hour: Optional[str] = Form(None),    # <--- Cambiado de Optional[int] a Optional[str]
     removed_task_ids: List[int] = Form([]),
     note: Optional[str] = Form(None)
 ):
+    # Convertir cadenas vacías "" recibidas del HTML a None o entero según corresponda
+    custom_start_hour = int(custom_start_hour) if custom_start_hour and custom_start_hour.strip() else None
+    custom_end_hour = int(custom_end_hour) if custom_end_hour and custom_end_hour.strip() else None
+
     force_status = force_status if force_status in ("BLOCKED", "VIABLE") else None
     with Session(engine) as session:
         override = session.exec(select(DayOverride).where(DayOverride.override_date == override_date)).first()
