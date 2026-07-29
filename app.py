@@ -444,23 +444,33 @@ def delete_task(task_id: int):
 def save_day_override(
     override_date: date,
     force_status: Optional[str] = Form(None),
-    custom_start_hour: Optional[str] = Form(None),  # <--- Cambiado de Optional[int] a Optional[str]
-    custom_end_hour: Optional[str] = Form(None),    # <--- Cambiado de Optional[int] a Optional[str]
+    custom_start_hour: Optional[str] = Form(None),
+    custom_end_hour: Optional[str] = Form(None),
     removed_task_ids: List[int] = Form([]),
     note: Optional[str] = Form(None)
 ):
-    # Convertir cadenas vacías "" recibidas del HTML a None o entero según corresponda
-    custom_start_hour = int(custom_start_hour) if custom_start_hour and custom_start_hour.strip() else None
-    custom_end_hour = int(custom_end_hour) if custom_end_hour and custom_end_hour.strip() else None
-
     force_status = force_status if force_status in ("BLOCKED", "VIABLE") else None
+
+    # Los inputs numéricos vacíos llegan como "" (no como ausentes), y FastAPI no puede
+    # convertir "" a int directamente — por eso se reciben como texto y se convierten acá.
+    def parse_optional_int(value: Optional[str]) -> Optional[int]:
+        if value is None or value.strip() == "":
+            return None
+        try:
+            return int(value)
+        except ValueError:
+            return None
+
+    custom_start_hour_int = parse_optional_int(custom_start_hour)
+    custom_end_hour_int = parse_optional_int(custom_end_hour)
+
     with Session(engine) as session:
         override = session.exec(select(DayOverride).where(DayOverride.override_date == override_date)).first()
         if not override:
             override = DayOverride(override_date=override_date)
 
         # Si no quedó ningún ajuste real, mejor borrar el override que dejar una fila vacía
-        has_any_setting = bool(force_status) or custom_start_hour is not None or custom_end_hour is not None or removed_task_ids or note
+        has_any_setting = bool(force_status) or custom_start_hour_int is not None or custom_end_hour_int is not None or removed_task_ids or note
 
         if not has_any_setting:
             if override.id:
@@ -469,8 +479,8 @@ def save_day_override(
             return RedirectResponse(url="/", status_code=303)
 
         override.force_status = force_status
-        override.custom_start_hour = custom_start_hour
-        override.custom_end_hour = custom_end_hour
+        override.custom_start_hour = custom_start_hour_int
+        override.custom_end_hour = custom_end_hour_int
         override.removed_task_ids = json.dumps(removed_task_ids) if removed_task_ids else None
         override.note = note
         override.updated_at = datetime.utcnow()
