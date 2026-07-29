@@ -1,0 +1,183 @@
+            <!-- LEFT COLUMN: BACKLOG -->
+            <div class="space-y-5 min-w-0">
+                <div class="flex items-center justify-between">
+                    <h2 class="font-display text-lg sm:text-xl font-semibold flex items-baseline gap-2">
+                        <span class="text-[11px] font-mono font-semibold tracking-widest text-brass uppercase">01</span>
+                        Backlog de tareas
+                    </h2>
+                    <span class="text-[11px] font-mono text-ink3 bg-surface border border-hairline px-2.5 py-1 rounded-full">
+                        {{ tasks|length }} tarea{{ 's' if tasks|length != 1 else '' }}
+                    </span>
+                </div>
+
+                <div class="pill-switch relative bg-surface border border-hairline rounded-full p-1 flex">
+                    <div id="pill-indicator" class="pill-indicator"></div>
+                    <button type="button" onclick="switchTab('manual')" id="tab-btn-manual" class="relative z-10 flex-1 py-2.5 rounded-full text-sm font-semibold text-center text-canvas">Modo manual</button>
+                    <button type="button" onclick="switchTab('json')" id="tab-btn-json" class="relative z-10 flex-1 py-2.5 rounded-full text-sm font-semibold text-center text-ink2">Importar JSON (IA)</button>
+                </div>
+
+                <!-- TAB MANUAL -->
+                <div id="tab-manual" class="tab-content">
+                    {% if favorites %}
+                    <div class="mb-3">
+                        <p class="text-[11px] font-semibold text-ink3 uppercase tracking-wide mb-2">Favoritas</p>
+                        <div class="flex flex-wrap gap-2">
+                            {% for fav in favorites %}
+                            <div class="group relative">
+                                <button type="button" onclick="useFavoriteInForm({{ fav.id }}, '{{ fav.title|e }}', '{{ fav.category.value }}', {{ fav.estimated_hours }}, {{ fav.curing_hours }})" class="flex items-center gap-1.5 bg-surface2 hover:bg-hairline border border-hairline text-ink2 text-xs font-medium pl-3 pr-7 py-1.5 rounded-full transition-colors">
+                                    <svg class="w-3 h-3 text-brass"><use href="#i-star-filled"/></svg>
+                                    {{ fav.title }}
+                                </button>
+                                <form action="/favorites/{{ fav.id }}/delete" method="post" class="absolute right-1 top-1/2 -translate-y-1/2">
+                                    <button type="submit" aria-label="Quitar favorita" class="w-5 h-5 rounded-full flex items-center justify-center text-ink3 hover:text-rust hover:bg-rust/10">
+                                        <svg class="w-3 h-3"><use href="#i-close"/></svg>
+                                    </button>
+                                </form>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    {% endif %}
+                    <form action="/tasks/add" method="post" class="bg-surface border border-hairline rounded-2xl p-5 sm:p-6 space-y-4 shadow-panel">
+                        <div>
+                            <label class="block text-[11px] font-semibold text-ink3 mb-1.5 uppercase tracking-wide">Título de la tarea</label>
+                            <input type="text" id="manual-title" name="title" required placeholder="Ej. Lijado de cubiertas" class="w-full bg-surface2 border border-hairline text-ink rounded-lg px-3.5 py-2.5 text-sm focus:outline-none focus:border-brass">
+                        </div>
+                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                            <div>
+                                <label class="block text-[11px] font-semibold text-ink3 mb-1.5 uppercase tracking-wide">Categoría</label>
+                                <select id="manual-category" name="category" class="w-full bg-surface2 border border-hairline text-ink rounded-lg px-3 py-2.5 text-sm focus:outline-none">
+                                    <option value="carpentry">Carpintería</option>
+                                    <option value="pva_glue">Encolado PVA</option>
+                                    <option value="varnish_paint">Barnizado / Pintura</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-[11px] font-semibold text-ink3 mb-1.5 uppercase tracking-wide">Horas activas</label>
+                                <input type="number" step="0.5" id="manual-estimated-hours" name="estimated_hours" value="1.5" min="0.5" class="w-full bg-surface2 border border-hairline text-ink rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:border-brass">
+                            </div>
+                            <div>
+                                <label class="block text-[11px] font-semibold text-ink3 mb-1.5 uppercase tracking-wide">Horas curado</label>
+                                <input type="number" step="0.5" id="manual-curing-hours" name="curing_hours" value="0.0" min="0.0" class="w-full bg-surface2 border border-hairline text-ink rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:border-brass">
+                            </div>
+                        </div>
+                        <button type="submit" class="w-full flex items-center justify-center gap-2 bg-brass hover:bg-brassdim text-canvas font-semibold py-3 rounded-lg text-sm transition-colors">
+                            <svg class="w-4 h-4"><use href="#i-plus"/></svg> Agregar tarea
+                        </button>
+                    </form>
+                </div>
+
+                <!-- TAB JSON -->
+                <div id="tab-json" class="tab-content hidden">
+                    <div class="bg-surface border border-hairline rounded-2xl p-5 sm:p-6 space-y-4 shadow-panel">
+                        <div class="flex items-center justify-between gap-3 flex-wrap">
+                            <p class="text-xs text-ink3">Pega el JSON generado por IA:</p>
+                            <button type="button" onclick="copyAiPrompt()" class="text-xs font-semibold text-brass border border-brassdim/50 bg-brass/5 hover:bg-brass/10 px-3 py-1.5 rounded-md transition-colors whitespace-nowrap">Copiar prompt IA</button>
+                        </div>
+                        <textarea id="json-import-input" rows="7" placeholder='{"project_name": "...", "tasks": [...] }' class="w-full bg-surface2 border border-hairline text-ink rounded-lg px-4 py-3 text-sm font-mono resize-none focus:outline-none focus:border-chalk"></textarea>
+                        <button type="button" onclick="importJsonTasks()" class="w-full flex items-center justify-center gap-2 bg-chalk hover:bg-chalk/80 text-canvas font-semibold py-3 rounded-lg text-sm transition-colors">
+                            <svg class="w-4 h-4"><use href="#i-import"/></svg> Importar proyecto
+                        </button>
+                    </div>
+                </div>
+
+                <!-- TASK LIST -->
+                <div class="space-y-2.5">
+                    {% for task in tasks %}
+                    <div class="task-card bg-surface border border-hairline rounded-xl overflow-hidden" data-task-id="{{ task.id }}">
+                        <div class="p-3.5 flex items-stretch gap-3">
+                            <div class="flex flex-col gap-1 justify-center">
+                                <form action="/tasks/{{ task.id }}/move-up" method="post"><button type="submit" aria-label="Subir" class="w-7 h-7 rounded-md bg-surface2 hover:bg-hairline text-ink3 flex items-center justify-center"><svg class="w-3.5 h-3.5"><use href="#i-chev-up"/></svg></button></form>
+                                <form action="/tasks/{{ task.id }}/move-down" method="post"><button type="submit" aria-label="Bajar" class="w-7 h-7 rounded-md bg-surface2 hover:bg-hairline text-ink3 flex items-center justify-center"><svg class="w-3.5 h-3.5"><use href="#i-chev-down"/></svg></button></form>
+                            </div>
+                            <div class="flex-1 min-w-0 flex flex-col justify-center">
+                                <div class="flex items-center gap-2 mb-1.5 flex-wrap">
+                                    <span class="text-[10px] font-mono font-semibold text-brass shrink-0">#{{ loop.index }}</span>
+                                    <h4 class="text-sm font-medium text-ink truncate">{{ task.title }}</h4>
+                                </div>
+                                <div class="flex items-center gap-3 text-xs">
+                                    <span class="font-mono text-ink2">{{ task.estimated_hours }}h <span class="text-ink3">activo</span></span>
+                                    {% if task.curing_hours > 0 %}<span class="font-mono text-chalk">{{ task.curing_hours }}h <span class="text-ink3">curado</span></span>{% endif %}
+                                </div>
+                            </div>
+                            <div class="flex flex-col gap-1 justify-center">
+                                <button type="button" onclick="toggleEditTask({{ task.id }})" aria-label="Editar tiempos" class="w-8 h-8 rounded-md bg-chalk/10 hover:bg-chalk/20 text-chalk flex items-center justify-center transition-colors"><svg class="w-3.5 h-3.5"><use href="#i-edit"/></svg></button>
+                                <form action="/tasks/{{ task.id }}/favorite" method="post">
+                                    <button type="submit" aria-label="Guardar como favorita" class="w-8 h-8 rounded-md bg-brass/10 hover:bg-brass/20 text-brass flex items-center justify-center transition-colors"><svg class="w-3.5 h-3.5"><use href="#i-star"/></svg></button>
+                                </form>
+                                <form action="/tasks/{{ task.id }}/delete" method="post">
+                                    <button type="submit" aria-label="Eliminar" class="w-8 h-8 rounded-md bg-rust/10 hover:bg-rust/20 text-rust flex items-center justify-center transition-colors"><svg class="w-4 h-4"><use href="#i-close"/></svg></button>
+                                </form>
+                            </div>
+                        </div>
+
+                        <!-- Panel inline de edición de tiempos -->
+                        <div id="edit-task-{{ task.id }}" class="hidden border-t border-hairline bg-canvas/40 p-3.5">
+                            <form action="/tasks/{{ task.id }}/update" method="post" class="space-y-3">
+                                <div>
+                                    <label class="block text-[10px] font-semibold text-ink3 mb-1 uppercase tracking-wide">Título</label>
+                                    <input type="text" name="title" value="{{ task.title }}" required class="w-full bg-surface2 border border-hairline text-ink rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-chalk">
+                                </div>
+                                <div class="grid grid-cols-3 gap-2">
+                                    <div>
+                                        <label class="block text-[10px] font-semibold text-ink3 mb-1 uppercase tracking-wide">Categoría</label>
+                                        <select name="category" class="w-full bg-surface2 border border-hairline text-ink rounded-lg px-2 py-2 text-xs focus:outline-none">
+                                            <option value="carpentry" {% if task.category.value == 'carpentry' %}selected{% endif %}>Carpintería</option>
+                                            <option value="pva_glue" {% if task.category.value == 'pva_glue' %}selected{% endif %}>Encolado PVA</option>
+                                            <option value="varnish_paint" {% if task.category.value == 'varnish_paint' %}selected{% endif %}>Barnizado</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label class="block text-[10px] font-semibold text-ink3 mb-1 uppercase tracking-wide">Horas activas</label>
+                                        <input type="number" step="0.5" min="0.5" name="estimated_hours" value="{{ task.estimated_hours }}" required class="w-full bg-surface2 border border-hairline text-ink rounded-lg px-2 py-2 text-xs focus:outline-none focus:border-chalk">
+                                    </div>
+                                    <div>
+                                        <label class="block text-[10px] font-semibold text-ink3 mb-1 uppercase tracking-wide">Horas curado</label>
+                                        <input type="number" step="0.5" min="0.0" name="curing_hours" value="{{ task.curing_hours }}" required class="w-full bg-surface2 border border-hairline text-ink rounded-lg px-2 py-2 text-xs focus:outline-none focus:border-chalk">
+                                    </div>
+                                </div>
+                                <div class="flex items-center gap-2 pt-1">
+                                    <button type="button" onclick="toggleEditTask({{ task.id }})" class="flex-1 bg-surface2 hover:bg-hairline text-ink2 font-semibold py-2 rounded-lg text-xs transition-colors">Cancelar</button>
+                                    <button type="submit" class="flex-1 bg-chalk hover:bg-chalk/80 text-canvas font-semibold py-2 rounded-lg text-xs transition-colors">Guardar cambios</button>
+                                </div>
+                            </form>
+                            <form action="/tasks/{{ task.id }}/update_status" method="post" class="mt-2">
+                                <input type="hidden" name="status" value="completed"><input type="hidden" name="progress" value="100">
+                                <button type="submit" class="w-full flex items-center justify-center gap-1.5 bg-moss/10 hover:bg-moss/20 text-moss font-semibold py-2 rounded-lg text-xs transition-colors">
+                                    <svg class="w-3.5 h-3.5"><use href="#i-check"/></svg> Marcar como completada
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+
+                <!-- HISTORIAL DE ÚLTIMOS 7 DÍAS -->
+                <div class="bg-surface border border-hairline rounded-2xl overflow-hidden">
+                    <button type="button" onclick="toggleHistory()" class="w-full flex items-center justify-between px-4 py-3 text-left">
+                        <span class="flex items-center gap-2 text-sm font-semibold text-ink2">
+                            <svg class="w-4 h-4 text-ink3"><use href="#i-history"/></svg>
+                            Historial (últimos 7 días)
+                            <span class="text-[11px] font-mono text-ink3 bg-surface2 border border-hairline px-2 py-0.5 rounded-full">{{ completed_history|length if completed_history is defined else 0 }}</span>
+                        </span>
+                        <svg id="history-chevron" class="w-4 h-4 text-ink3 transition-transform"><use href="#i-chevron-down-sm"/></svg>
+                    </button>
+                    <div id="history-panel" class="hidden border-t border-hairline">
+                        {% if completed_history %}
+                        <div class="divide-y divide-hairline max-h-72 overflow-y-auto">
+                            {% for t in completed_history %}
+                            <div class="flex items-center justify-between gap-2 px-4 py-2.5">
+                                <div class="min-w-0">
+                                    <p class="text-xs font-medium text-ink truncate">{{ t.title }}</p>
+                                    <p class="text-[10px] text-ink3 font-mono">{{ t.completed_at.strftime('%d/%m %H:%M') if t.completed_at else '' }}</p>
+                                </div>
+                                <span class="text-[11px] font-mono text-moss shrink-0">{{ t.estimated_hours }}h</span>
+                            </div>
+                            {% endfor %}
+                        </div>
+                        {% else %}
+                        <p class="px-4 py-3 text-xs text-ink3">Todavía no hay tareas completadas en los últimos 7 días.</p>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>

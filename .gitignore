@@ -1,0 +1,15 @@
+# Archivos temporales de Python
+__pycache__/
+*.pyc
+
+# Bases de datos locales
+*.db
+*.sqlite3
+
+# Entornos virtuales
+venv/
+.venv/
+
+# Variables de entorno con contraseñas o tokens
+.env
+.cursorrules

@@ -1,0 +1,13 @@
+# Reglas Estrictas de Refactorización de Frontend
+
+## Ámbito
+- SOLO refactorizar archivos en la carpeta de plantillas (templates Jinja2) y archivos CSSTailwind.
+- Queda ESTRICTAMENTE PROHIBIDO modificar archivos Python (.py), rutas de FastAPI o contratos de datos.
+
+## Garantía de No Ruptura
+1. Atención a Variables Todas las variables de Jinja2 (p. ej. `{{ user.name }}`, `{% for item in items %}`) son SAGRADAS. No cambies sus nombres, tipos ni estructuras.
+2. Prohibido Simplificar NUNCA uses elipsis (`...`), comentarios del tipo `!-- resto del código --` ni omitas macros de Jinja2. Devuelve SIEMPRE el archivo completo.
+3. Tailwind CSS No elimines ni alteres clases de Tailwind a menos que la tarea sea explícitamente reestructurar utilidades o limpiar redundancias.
+
+## Comprobación
+- Si detectas que falta un dato en Jinja2 o no entiendes la estructura de un context, PREGUNTA antes de asumir o modificar la plantilla.
