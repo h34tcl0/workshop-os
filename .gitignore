@@ -1,15 +1,25 @@
-# Archivos temporales de Python
+# Python
 __pycache__/
 *.pyc
+.pytest_cache/
 
-# Bases de datos locales
+# Bases de datos y datos persistentes
+data/
 *.db
+*.sqlite
 *.sqlite3
+
+# Credenciales y secretos
+.env
+google-credentials.json
 
 # Entornos virtuales
 venv/
 .venv/
 
-# Variables de entorno con contraseñas o tokens
-.env
+# skills.sh — integración AI (directorio y cachés locales)
+.skills/
+.skills-cache/
+
+# IDE / local
 .cursorrules

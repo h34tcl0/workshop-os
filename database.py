@@ -1,5 +1,7 @@
-from sqlmodel import SQLModel, create_engine, Session, text
-from config import DATABASE_URL, DATABASE_PATH
+from sqlmodel import SQLModel, create_engine, text
+from config import DATABASE_URL, DATABASE_PATH, DATA_DIR
+
+DATA_DIR.mkdir(parents=True, exist_ok=True)
 
 engine = create_engine(
     DATABASE_URL,
@@ -62,7 +64,3 @@ def create_db_and_tables():
                 print("[Database] Migración de datos: 'exclude_weekends' -> 'exclude_saturdays' + 'exclude_sundays'.")
             except Exception as e:
                 print(f"[Database] Migration note (exclude_weekends -> granular): {e}")
-
-def get_session():
-    with Session(engine) as session:
-        yield session

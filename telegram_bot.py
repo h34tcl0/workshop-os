@@ -1,7 +1,7 @@
 import json
 import urllib.request
 import urllib.parse
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, timedelta, timezone
 from typing import List, Optional
 from sqlmodel import Session, select
 from config import TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID
@@ -179,7 +179,7 @@ class TelegramBotService:
                         if status_code == 100:
                             task.status = TaskStatus.COMPLETED
                             if not task.completed_at:
-                                task.completed_at = datetime.utcnow()
+                                task.completed_at = datetime.now(timezone.utc)
                         elif status_code == 50:
                             task.status = TaskStatus.IN_PROGRESS
                         else:
@@ -194,7 +194,7 @@ class TelegramBotService:
                 daily_log = session.get(DailyLog, daily_log_id)
                 if daily_log and not daily_log.checkin_resolved:
                     task_ids = json.loads(daily_log.scheduled_task_ids or "[]")
-                    now = datetime.utcnow()
+                    now = datetime.now(timezone.utc)
                     for tid in task_ids:
                         t = session.get(Task, tid)
                         if t and t.status != TaskStatus.COMPLETED:
@@ -270,7 +270,7 @@ class TelegramBotService:
 
             with Session(engine) as session:
                 daily_log = session.get(DailyLog, daily_log_id)
-                now = datetime.utcnow()
+                now = datetime.now(timezone.utc)
                 completed_titles = []
                 pending_titles = []
                 for tid in all_ids:

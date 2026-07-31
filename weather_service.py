@@ -23,9 +23,13 @@ class OpenMeteoWeatherService:
         }
         url = f"https://api.open-meteo.com/v1/forecast?{urllib.parse.urlencode(params)}"
 
-        req = urllib.request.Request(url, headers={"User-Agent": "WorkshopOS/1.0"})
-        with urllib.request.urlopen(req, timeout=10) as response:
-            return json.loads(response.read().decode("utf-8"))
+        try:
+            req = urllib.request.Request(url, headers={"User-Agent": "WorkshopOS/1.0"})
+            with urllib.request.urlopen(req, timeout=10) as response:
+                return json.loads(response.read().decode("utf-8"))
+        except Exception as e:
+            print(f"[WeatherService] Failed to fetch weather forecast from OpenMeteo: {e}")
+            return {}
 
     def _parse_forecasts(self, data: dict) -> List[HourlyForecast]:
         hourly_data = data.get("hourly", {})

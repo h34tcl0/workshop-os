@@ -17,7 +17,7 @@ def get_holiday_dates(year: int, country_code: str = "CL") -> Set[date]:
     try:
         url = f"https://date.nager.at/api/v3/PublicHolidays/{year}/{country_code}"
         req = urllib.request.Request(url, headers={"User-Agent": "WorkshopOS/1.0"})
-        with urllib.request.urlopen(req, timeout=5) as response:
+        with urllib.request.urlopen(req, timeout=10) as response:
             data = json.loads(response.read().decode("utf-8"))
         dates = {date.fromisoformat(item["date"]) for item in data}
     except Exception as e:

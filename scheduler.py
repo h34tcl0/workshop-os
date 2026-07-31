@@ -2,7 +2,7 @@ import sys
 import argparse
 import json
 from typing import Optional
-from datetime import date, datetime, time, timedelta
+from datetime import date, datetime, timedelta, timezone
 
 if hasattr(sys.stdout, "reconfigure"):
     try:
@@ -68,7 +68,7 @@ def run_morning_evaluation(target_date: Optional[date] = None, mock_scenario: Op
 
         daily_log.status = eval_result.status
         daily_log.block_reason = eval_result.reason
-        daily_log.updated_at = datetime.utcnow()
+        daily_log.updated_at = datetime.now(timezone.utc)
 
         # Snapshot del clima de esta mañana (para poder comparar más tarde si algo cambió)
         daily_log.morning_climate_snapshot = json.dumps(eval_result.climate_segments or [])

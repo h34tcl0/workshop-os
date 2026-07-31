@@ -1,4 +1,4 @@
-from datetime import datetime, date, time
+from datetime import datetime, date, time, timezone
 from typing import List, Optional, Dict, Any
 from enum import Enum
 from sqlmodel import SQLModel, Field, Relationship
@@ -24,7 +24,7 @@ class Project(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     name: str = Field(index=True)
     description: Optional[str] = None
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     is_active: bool = Field(default=True)
 
     tasks: List["Task"] = Relationship(back_populates="project")
@@ -40,7 +40,7 @@ class Task(SQLModel, table=True):
     order: int = Field(default=0, index=True)
     status: TaskStatus = Field(default=TaskStatus.PENDING)
     progress_percentage: int = Field(default=0)  # 0, 50, 100
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     completed_at: Optional[datetime] = None  # se setea automáticamente al pasar a COMPLETED (historial de 7 días)
 
     project: Optional[Project] = Relationship(back_populates="tasks")
@@ -69,7 +69,7 @@ class DailyLog(SQLModel, table=True):
     weather_alert_acknowledged: bool = Field(default=False)  # el usuario ya apretó "OK, ya lo vi"
     weather_alert_retry_count: int = Field(default=0)     # cuántas rondas de reintento (ráfaga de 3) se han mandado, máx 6
     weather_alert_last_sent_at: Optional[datetime] = None  # cuándo se mandó la última ráfaga, para saber cuándo toca la próxima
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 class FavoriteTask(SQLModel, table=True):
     """Plantilla de tarea frecuente, para agregar rápido desde el form manual."""
@@ -78,7 +78,7 @@ class FavoriteTask(SQLModel, table=True):
     category: TaskCategory = Field(default=TaskCategory.CARPENTRY)
     estimated_hours: float = Field(default=1.0)
     curing_hours: float = Field(default=0.0)
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 class DayOverride(SQLModel, table=True):
     """Ajustes manuales para un día puntual del cronograma, por sobre lo que calcula el motor."""
@@ -89,7 +89,7 @@ class DayOverride(SQLModel, table=True):
     custom_end_hour: Optional[int] = None
     removed_task_ids: Optional[str] = None  # JSON list de IDs a excluir del cálculo automático ese día
     note: Optional[str] = None
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 class ForcedTask(SQLModel, table=True):
     """Una tarea 'forzada' a un día/hora puntual, saltándose por completo el motor de evaluación."""
@@ -97,7 +97,7 @@ class ForcedTask(SQLModel, table=True):
     forced_date: date = Field(index=True)
     task_id: int = Field(foreign_key="task.id")
     forced_start_hour: float = Field(default=9.0)
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 # Non-DB Data Transfer Objects (DTOs)
 class HourlyForecast(BaseModel):

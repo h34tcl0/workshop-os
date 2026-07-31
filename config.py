@@ -6,11 +6,14 @@ from sqlmodel import SQLModel, Field, Session, select
 # Paths y Base de Datos
 BASE_DIR = Path(__file__).resolve().parent
 
-# DATA_DIR: carpeta donde vive workshop.db. En producción (Docker) debe apuntar
-# a un volumen persistente montado (ej. /data), para no perder la BD en cada
-# redeploy/reinicio del contenedor. Por defecto usa la carpeta del proyecto
-# (comportamiento local de siempre, sin cambios si no se define nada).
-DATA_DIR = Path(os.getenv("DATA_DIR", str(BASE_DIR)))
+def _default_data_dir() -> Path:
+    """/data en Docker (volumen persistente), ./data en desarrollo local."""
+    if Path("/.dockerenv").is_file():
+        return Path("/data")
+    return BASE_DIR / "data"
+
+
+DATA_DIR = Path(os.getenv("DATA_DIR", str(_default_data_dir())))
 DATABASE_PATH = DATA_DIR / "workshop.db"
 DATABASE_URL = os.getenv("DATABASE_URL", f"sqlite:///{DATABASE_PATH}")
 
@@ -30,7 +33,6 @@ GOOGLE_CALENDAR_ID = os.getenv("GOOGLE_CALENDAR_ID", "primary")
 SETUP_HOURS = 1.0
 TEARDOWN_HOURS = 1.0
 MIN_WORK_HOURS = 1.0
-MIN_TOTAL_WINDOW_HOURS = 3.0
 POST_TEARDOWN_RAIN_BUFFER_HOURS = 2.0
 
 # No vale la pena abrir el taller por menos de esto, salvo que sea la última

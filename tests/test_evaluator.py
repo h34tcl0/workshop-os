@@ -100,7 +100,7 @@ def test_rain_in_post_teardown_buffer():
 def test_insufficient_backlog_hours():
     target_date = date(2026, 7, 23)
     tasks = [
-        Task(id=1, title="Ajuste rápido", estimated_hours=1.5, category=TaskCategory.CARPENTRY, status=TaskStatus.PENDING, order=1)
+        Task(id=1, title="Ajuste rápido", estimated_hours=0.5, category=TaskCategory.CARPENTRY, status=TaskStatus.PENDING, order=1)
     ]
     weather_svc = MockWeatherService(scenario="sunny")
     forecasts = weather_svc.get_hourly_forecast(target_date)
