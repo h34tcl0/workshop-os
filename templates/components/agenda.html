@@ -8,15 +8,16 @@
                     <span class="text-[11px] font-mono text-ink3 bg-surface border border-hairline px-2.5 py-1 rounded-full">7 días</span>
                 </div>
 
-                <div class="space-y-4">
+                    <div class="flex overflow-x-auto snap-x snap-mandatory sm:grid sm:grid-cols-1 xl:grid-cols-2 gap-4 pb-2 sm:pb-0 -mx-4 px-4 sm:mx-0 sm:px-0 scrollbar-none">
                     {% macro day_editor_modal(item, eval, all_tasks) %}
                     {% set date_iso = item.date.isoformat() %}
                     {% set override = item.day_override %}
-                    <div id="day-editor-{{ date_iso }}" class="fixed inset-0 z-[120] bg-canvas/85 backdrop-blur-sm hidden flex items-center justify-center p-4">
-                        <div class="bg-surface border border-hairline rounded-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto p-5 sm:p-6 shadow-panel relative">
+                    <div id="day-editor-{{ date_iso }}" class="fixed inset-0 z-[120] bg-canvas/85 backdrop-blur-sm hidden flex items-end sm:items-center justify-center p-0 sm:p-4">
+                        <div class="bg-surface border-t sm:border border-hairline rounded-t-2xl sm:rounded-xl w-full max-w-lg max-h-[85vh] sm:max-h-[90vh] overflow-y-auto p-5 sm:p-6 shadow-panel relative">
+                            <div class="w-12 h-1 bg-hairline rounded-full mx-auto mb-3 sm:hidden"></div>
                             <div class="flex items-center justify-between border-b border-hairline pb-4 mb-5">
                                 <h3 class="font-display text-lg font-semibold text-ink">Editar {{ item.date_str }}</h3>
-                                <button type="button" onclick="toggleDayEditor('{{ date_iso }}')" aria-label="Cerrar" class="text-ink3 hover:text-ink w-8 h-8 flex items-center justify-center rounded-md bg-surface2">
+                                <button type="button" onclick="toggleDayEditor('{{ date_iso }}')" aria-label="Cerrar" class="text-ink3 hover:text-ink w-11 h-11 sm:w-8 sm:h-8 flex items-center justify-center rounded-md bg-surface2 min-h-[44px] min-w-[44px] sm:min-h-0 sm:min-w-0">
                                     <svg class="w-4 h-4"><use href="#i-close"/></svg>
                                 </button>
                             </div>
@@ -24,7 +25,7 @@
                             <form action="/day-override/{{ date_iso }}/save" method="post" class="space-y-4">
                                 <div>
                                     <label class="block text-[11px] font-semibold text-ink3 mb-1.5 uppercase tracking-wide">Estado del día</label>
-                                    <select name="force_status" class="w-full bg-surface2 border border-hairline text-ink rounded-lg px-3 py-2.5 text-sm focus:outline-none">
+                                    <select name="force_status" class="w-full bg-surface2 border border-hairline text-ink rounded-lg px-3 py-2.5 text-sm focus:outline-none min-h-[44px] sm:min-h-0">
                                         <option value="" {% if not override or not override.force_status %}selected{% endif %}>Automático (según clima)</option>
                                         <option value="VIABLE" {% if override and override.force_status == 'VIABLE' %}selected{% endif %}>Forzar viable</option>
                                         <option value="BLOCKED" {% if override and override.force_status == 'BLOCKED' %}selected{% endif %}>Forzar bloqueado</option>
@@ -33,17 +34,17 @@
 
                                 <div>
                                     <label class="block text-[11px] font-semibold text-ink3 mb-1.5 uppercase tracking-wide">Motivo (opcional, se muestra si está bloqueado)</label>
-                                    <input type="text" name="note" value="{{ override.note if override and override.note else '' }}" placeholder="Ej. Viaje, evento familiar..." class="w-full bg-surface2 border border-hairline text-ink rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:border-brass">
+                                    <input type="text" name="note" value="{{ override.note if override and override.note else '' }}" placeholder="Ej. Viaje, evento familiar..." class="w-full bg-surface2 border border-hairline text-ink rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:border-brass min-h-[44px] sm:min-h-0">
                                 </div>
 
                                 <div class="grid grid-cols-2 gap-3">
                                     <div>
                                         <label class="block text-[11px] font-semibold text-ink3 mb-1.5 uppercase tracking-wide">Inicio jornada (este día)</label>
-                                        <input type="number" min="0" max="23" name="custom_start_hour" value="{{ override.custom_start_hour if override and override.custom_start_hour is not none else '' }}" placeholder="{{ app_settings.operational_start_hour }}" class="w-full bg-surface2 border border-hairline text-ink rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:border-brass">
+                                        <input type="number" min="0" max="23" name="custom_start_hour" value="{{ override.custom_start_hour if override and override.custom_start_hour is not none else '' }}" placeholder="{{ app_settings.operational_start_hour }}" class="w-full bg-surface2 border border-hairline text-ink rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:border-brass min-h-[44px] sm:min-h-0">
                                     </div>
                                     <div>
                                         <label class="block text-[11px] font-semibold text-ink3 mb-1.5 uppercase tracking-wide">Fin jornada (este día)</label>
-                                        <input type="number" min="0" max="23" name="custom_end_hour" value="{{ override.custom_end_hour if override and override.custom_end_hour is not none else '' }}" placeholder="{{ app_settings.operational_end_hour }}" class="w-full bg-surface2 border border-hairline text-ink rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:border-brass">
+                                        <input type="number" min="0" max="23" name="custom_end_hour" value="{{ override.custom_end_hour if override and override.custom_end_hour is not none else '' }}" placeholder="{{ app_settings.operational_end_hour }}" class="w-full bg-surface2 border border-hairline text-ink rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:border-brass min-h-[44px] sm:min-h-0">
                                     </div>
                                 </div>
                                 <p class="text-[11px] text-ink3 -mt-2">Vacío = usa la jornada general configurada.</p>
@@ -53,8 +54,8 @@
                                     <label class="block text-[11px] font-semibold text-ink3 mb-1.5 uppercase tracking-wide">Tareas agendadas este día</label>
                                     <div class="space-y-2 bg-canvas/40 border border-hairline rounded-lg p-3">
                                         {% for t in eval.scheduled_tasks %}
-                                        <label class="flex items-center gap-2.5 cursor-pointer">
-                                            <input type="checkbox" name="removed_task_ids" value="{{ t.id }}" class="w-4 h-4 rounded border-hairline bg-surface2 text-rust focus:ring-rust">
+                                        <label class="flex items-center gap-2.5 cursor-pointer min-h-[44px] sm:min-h-0 py-1">
+                                            <input type="checkbox" name="removed_task_ids" value="{{ t.id }}" class="w-5 h-5 sm:w-4 sm:h-4 rounded border-hairline bg-surface2 text-rust focus:ring-rust">
                                             <span class="text-xs text-ink2">Quitar <strong class="text-ink font-medium">{{ t.title }}</strong> de este día</span>
                                         </label>
                                         {% endfor %}
@@ -63,13 +64,13 @@
                                 {% endif %}
 
                                 <div class="flex items-center gap-3 pt-3 border-t border-hairline">
-                                    <button type="submit" class="flex-1 bg-brass hover:bg-brassdim text-canvas font-semibold py-2.5 rounded-lg text-sm transition-colors">Guardar</button>
+                                    <button type="submit" class="flex-1 bg-brass hover:bg-brassdim text-canvas font-semibold py-3 sm:py-2.5 rounded-lg text-sm transition-colors min-h-[44px] sm:min-h-0">Guardar</button>
                                 </div>
                             </form>
 
                             {% if override and override.id %}
                             <form action="/day-override/{{ date_iso }}/clear" method="post" class="mt-2">
-                                <button type="submit" class="w-full text-center text-xs text-ink3 hover:text-rust py-2">Quitar todos los ajustes manuales de este día</button>
+                                <button type="submit" class="w-full text-center text-xs text-ink3 hover:text-rust py-2.5 min-h-[44px] sm:min-h-0 flex items-center justify-center">Quitar todos los ajustes manuales de este día</button>
                             </form>
                             {% endif %}
 
@@ -82,27 +83,27 @@
                                     <div class="flex items-center justify-between gap-2 bg-brass/5 border border-brassdim/30 rounded-lg px-3 py-2">
                                         <span class="text-xs text-ink2">⚡ <strong class="text-ink font-medium">{{ ft.task.title }}</strong> a las {{ '%02d:00'|format(ft.forced_start_hour|int) }}</span>
                                         <form action="/day-override/forced-task/{{ ft.forced_id }}/delete" method="post">
-                                            <button type="submit" aria-label="Quitar forzada" class="w-6 h-6 rounded-md text-rust hover:bg-rust/10 flex items-center justify-center"><svg class="w-3.5 h-3.5"><use href="#i-close"/></svg></button>
+                                            <button type="submit" aria-label="Quitar forzada" class="w-9 h-9 sm:w-6 sm:h-6 rounded-md text-rust hover:bg-rust/10 flex items-center justify-center min-h-[44px] min-w-[44px] sm:min-h-0 sm:min-w-0"><svg class="w-3.5 h-3.5"><use href="#i-close"/></svg></button>
                                         </form>
                                     </div>
                                     {% endfor %}
                                 </div>
                                 {% endif %}
 
-                                <form action="/day-override/{{ date_iso }}/force-task" method="post" class="flex items-end gap-2">
+                                <form action="/day-override/{{ date_iso }}/force-task" method="post" class="flex flex-col sm:flex-row sm:items-end gap-2">
                                     <div class="flex-1 min-w-0">
                                         <label class="block text-[10px] text-ink3 mb-1">Tarea</label>
-                                        <select name="task_id" class="w-full bg-surface2 border border-hairline text-ink rounded-lg px-2 py-2 text-xs focus:outline-none">
+                                        <select name="task_id" class="w-full bg-surface2 border border-hairline text-ink rounded-lg px-2 py-2 text-xs focus:outline-none min-h-[44px] sm:min-h-0">
                                             {% for t in all_tasks %}
                                             <option value="{{ t.id }}">{{ t.title }}</option>
                                             {% endfor %}
                                         </select>
                                     </div>
-                                    <div class="w-20 shrink-0">
+                                    <div class="w-full sm:w-20 shrink-0">
                                         <label class="block text-[10px] text-ink3 mb-1">Hora</label>
-                                        <input type="number" name="forced_start_hour" min="0" max="23" value="9" class="w-full bg-surface2 border border-hairline text-ink rounded-lg px-2 py-2 text-xs focus:outline-none">
+                                        <input type="number" name="forced_start_hour" min="0" max="23" value="9" class="w-full bg-surface2 border border-hairline text-ink rounded-lg px-2 py-2 text-xs focus:outline-none min-h-[44px] sm:min-h-0">
                                     </div>
-                                    <button type="submit" class="bg-chalk hover:bg-chalk/80 text-canvas font-semibold px-3 py-2 rounded-lg text-xs transition-colors shrink-0">Forzar</button>
+                                    <button type="submit" class="bg-chalk hover:bg-chalk/80 text-canvas font-semibold px-4 py-2.5 rounded-lg text-xs transition-colors shrink-0 min-h-[44px] sm:min-h-0 flex items-center justify-center">Forzar</button>
                                 </form>
                             </div>
                         </div>
@@ -150,7 +151,7 @@
 
                     {% if is_viable %}
                     <!-- ── DÍA VIABLE ── -->
-                    <div class="bg-surface border border-hairline rounded-2xl p-4 sm:p-5 shadow-panel">
+                    <div class="group bg-surface border border-hairline rounded-2xl p-4 sm:p-5 shadow-panel w-[88vw] sm:w-full sm:max-w-none shrink-0 snap-center sm:snap-align-none">
 
                         <!-- Header del Día -->
                         <div class="flex items-center justify-between gap-2 mb-3">
@@ -161,8 +162,8 @@
                                 </svg>
                             </span>
                             <div class="flex items-center gap-1.5 shrink-0">
-                                <button type="button" onclick="toggleDayEditor('{{ item.date.isoformat() }}')" aria-label="Editar día" class="w-6 h-6 rounded-md bg-surface2 hover:bg-hairline text-ink3 flex items-center justify-center">
-                                    <svg class="w-3 h-3"><use href="#i-edit"/></svg>
+                                <button type="button" onclick="toggleDayEditor('{{ item.date.isoformat() }}')" aria-label="Editar día" class="w-9 h-9 sm:w-6 sm:h-6 rounded-md bg-surface2 hover:bg-hairline text-ink3 flex items-center justify-center min-h-[44px] min-w-[44px] sm:min-h-0 sm:min-w-0 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 focus-within:opacity-100 transition-opacity duration-200">
+                                    <svg class="w-3.5 h-3.5 sm:w-3 sm:h-3"><use href="#i-edit"/></svg>
                                 </button>
                                 <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-moss/10 text-moss border border-moss/25 whitespace-nowrap">
                                     Viable
@@ -314,7 +315,7 @@
 
                     {% elif is_amber %}
                     <!-- ── CLIMA BUENO, SIN PLAN (ámbar) ── -->
-                    <div class="bg-surface border border-brassdim/30 rounded-2xl p-4 sm:p-5">
+                    <div class="group bg-surface border border-brassdim/30 rounded-2xl p-4 sm:p-5 w-[88vw] sm:w-full sm:max-w-none shrink-0 snap-center sm:snap-align-none">
                         <div class="flex items-center justify-between gap-2 mb-2">
                             <span class="font-display text-base sm:text-lg font-semibold text-ink flex items-center gap-2 min-w-0">
                                 <span class="truncate">{{ item.date_str if item.date_str is defined else eval.date_str }}</span>
@@ -323,8 +324,8 @@
                                 </svg>
                             </span>
                             <div class="flex items-center gap-1.5 shrink-0">
-                                <button type="button" onclick="toggleDayEditor('{{ item.date.isoformat() }}')" aria-label="Editar día" class="w-6 h-6 rounded-md bg-surface2 hover:bg-hairline text-ink3 flex items-center justify-center">
-                                    <svg class="w-3 h-3"><use href="#i-edit"/></svg>
+                                <button type="button" onclick="toggleDayEditor('{{ item.date.isoformat() }}')" aria-label="Editar día" class="w-9 h-9 sm:w-6 sm:h-6 rounded-md bg-surface2 hover:bg-hairline text-ink3 flex items-center justify-center min-h-[44px] min-w-[44px] sm:min-h-0 sm:min-w-0 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 focus-within:opacity-100 transition-opacity duration-200">
+                                    <svg class="w-3.5 h-3.5 sm:w-3 sm:h-3"><use href="#i-edit"/></svg>
                                 </button>
                                 <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-brass/10 text-brass border border-brassdim/30 whitespace-nowrap">
                                     Clima bueno, sin plan
@@ -370,14 +371,14 @@
 
                     {% elif is_manual_block %}
                     <!-- ── BLOQUEADO MANUALMENTE (decisión tuya, no del clima) ── -->
-                    <div class="bg-surface border border-hairline rounded-2xl p-4 sm:p-5">
+                    <div class="group bg-surface border border-hairline rounded-2xl p-4 sm:p-5 w-[88vw] sm:w-full sm:max-w-none shrink-0 snap-center sm:snap-align-none">
                         <div class="flex items-center justify-between gap-2 mb-2">
                             <span class="font-display text-base sm:text-lg font-semibold text-ink2 flex items-center gap-2 min-w-0">
                                 <span class="truncate">{{ item.date_str if item.date_str is defined else eval.date_str }}</span>
                             </span>
                             <div class="flex items-center gap-1.5 shrink-0">
-                                <button type="button" onclick="toggleDayEditor('{{ item.date.isoformat() }}')" aria-label="Editar día" class="w-6 h-6 rounded-md bg-surface2 hover:bg-hairline text-ink3 flex items-center justify-center">
-                                    <svg class="w-3 h-3"><use href="#i-edit"/></svg>
+                                <button type="button" onclick="toggleDayEditor('{{ item.date.isoformat() }}')" aria-label="Editar día" class="w-9 h-9 sm:w-6 sm:h-6 rounded-md bg-surface2 hover:bg-hairline text-ink3 flex items-center justify-center min-h-[44px] min-w-[44px] sm:min-h-0 sm:min-w-0 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 focus-within:opacity-100 transition-opacity duration-200">
+                                    <svg class="w-3.5 h-3.5 sm:w-3 sm:h-3"><use href="#i-edit"/></svg>
                                 </button>
                                 <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-surface2 text-ink3 border border-hairline whitespace-nowrap">
                                     Bloqueado manualmente
@@ -405,7 +406,7 @@
 
                     {% else %}
                     <!-- ── DÍA SUSPENDIDO (clima realmente malo) ── -->
-                    <div class="bg-surface border border-rust/20 rounded-2xl p-4 sm:p-5">
+                    <div class="group bg-surface border border-rust/20 rounded-2xl p-4 sm:p-5 w-[88vw] sm:w-full sm:max-w-none shrink-0 snap-center sm:snap-align-none">
                         <div class="flex items-center justify-between gap-2 mb-2">
                             <span class="font-display text-base sm:text-lg font-semibold text-ink2 flex items-center gap-2 min-w-0">
                                 <span class="truncate">{{ item.date_str if item.date_str is defined else eval.date_str }}</span>
@@ -414,8 +415,8 @@
                                 </svg>
                             </span>
                             <div class="flex items-center gap-1.5 shrink-0">
-                                <button type="button" onclick="toggleDayEditor('{{ item.date.isoformat() }}')" aria-label="Editar día" class="w-6 h-6 rounded-md bg-surface2 hover:bg-hairline text-ink3 flex items-center justify-center">
-                                    <svg class="w-3 h-3"><use href="#i-edit"/></svg>
+                                <button type="button" onclick="toggleDayEditor('{{ item.date.isoformat() }}')" aria-label="Editar día" class="w-9 h-9 sm:w-6 sm:h-6 rounded-md bg-surface2 hover:bg-hairline text-ink3 flex items-center justify-center min-h-[44px] min-w-[44px] sm:min-h-0 sm:min-w-0 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 focus-within:opacity-100 transition-opacity duration-200">
+                                    <svg class="w-3.5 h-3.5 sm:w-3 sm:h-3"><use href="#i-edit"/></svg>
                                 </button>
                                 <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-rust/10 text-rust border border-rust/25 whitespace-nowrap">
                                     Suspendido

@@ -1,8 +1,9 @@
 from fastapi import APIRouter, Request, Form, HTTPException, BackgroundTasks
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse
 from sqlmodel import Session, select
 from datetime import date, datetime, timedelta, timezone
 from typing import Optional, List
+from pydantic import BaseModel
 import json
 
 from config import get_app_settings
@@ -336,6 +337,22 @@ def delete_task(task_id: int):
             session.delete(task)
             session.commit()
     return RedirectResponse(url="/", status_code=303)
+
+
+class ReorderPayload(BaseModel):
+    task_ids: List[int]
+
+@router.post("/tasks/reorder")
+def reorder_tasks(payload: ReorderPayload):
+    """Accepts an ordered list of task IDs and persists new order values."""
+    with Session(engine) as session:
+        for index, task_id in enumerate(payload.task_ids, start=1):
+            task = session.get(Task, task_id)
+            if task:
+                task.order = index
+                session.add(task)
+        session.commit()
+    return JSONResponse({"status": "ok"})
 
 
 @router.post("/day-override/{override_date}/save")

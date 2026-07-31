@@ -3,6 +3,7 @@ import argparse
 import json
 from typing import Optional
 from datetime import date, datetime, timedelta, timezone
+from zoneinfo import ZoneInfo
 
 if hasattr(sys.stdout, "reconfigure"):
     try:
@@ -114,13 +115,22 @@ def run_morning_evaluation(target_date: Optional[date] = None, mock_scenario: Op
                 session.add(daily_log)
                 session.commit()
 
-        # 2. Telegram Notification
+  
+        # 2. Telegram Notification (SOLO si el día es VIABLE y hay tareas)
         if not daily_log.telegram_notified:
-            tg_success = telegram_svc.send_morning_evaluation(eval_result)
-            if tg_success:
+            if eval_result.status == DayStatus.DAY_VIABLE and eval_result.scheduled_tasks:
+                tg_success = telegram_svc.send_morning_evaluation(eval_result)
+                if tg_success:
+                    daily_log.telegram_notified = True
+                    session.add(daily_log)
+                    session.commit()
+            else:
+                # Si el día está suspendido o no hay tareas, NO se envía mensaje a Telegram.
+                # Marcamos telegram_notified = True para dar por concluida la evaluación de hoy sin molestar.
                 daily_log.telegram_notified = True
                 session.add(daily_log)
                 session.commit()
+                print(f"[{datetime.now().isoformat()}] Día no viable o sin tareas. Notificación de Telegram omitida.")
 
     print(f"Morning Evaluation completed for {target_date}: {eval_result.status} - {eval_result.reason}")
 
@@ -128,7 +138,7 @@ def run_checkin_tick(now: Optional[datetime] = None):
     """Revisa si ya llegó la hora FIJA de check-in de cierre (configurable en Ajustes,
     no depende de cuándo termina la ventana calculada — el trabajo real nunca es
     cronométrico) y manda la pregunta de cierre si corresponde."""
-    now = now or datetime.now()
+    now = now or datetime.now(ZoneInfo("America/Santiago"))
     create_db_and_tables()
 
     with Session(engine) as session:
